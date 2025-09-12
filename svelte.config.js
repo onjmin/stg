@@ -11,6 +11,9 @@ const config = {
 		paths: {
 			base: process.env.GITHUB_PAGES ? "/stg" : "",
 		},
+		prerender: {
+			entries: ["*"],
+		},
 	},
 };
 
