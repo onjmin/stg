@@ -96,12 +96,6 @@
             if (keys.arrowup || keys.w) player.y -= speed * 60 * deltaTime;
             if (keys.arrowdown || keys.s) player.y += speed * 60 * deltaTime;
 
-            if (isMobile) {
-                const mobileSpeed = player.speed * 60 * deltaTime;
-                if (isMovingLeft) player.x -= mobileSpeed;
-                if (isMovingRight) player.x += mobileSpeed;
-            }
-
             player.x = Math.max(
                 player.hitboxRadius,
                 Math.min(player.x, canvas.width - player.hitboxRadius),
@@ -456,9 +450,12 @@
         keys[e.key.toLowerCase()] = false;
     };
 
+    // 以前のタッチ操作ロジックを削除
+    // let isMovingLeft = $state(false);
+    // let isMovingRight = $state(false);
+
     let lastTouchX = 0;
-    let isMovingLeft = $state(false);
-    let isMovingRight = $state(false);
+    let isMoving = $state(false);
 
     function handleTouchStart(e: TouchEvent) {
         if (!isGameStarted || isGameOver) {
@@ -466,29 +463,21 @@
             return;
         }
         e.preventDefault();
-        handleMove(e.touches[0].clientX);
+        isMoving = true;
+        lastTouchX = e.touches[0].clientX;
     }
 
     function handleTouchMove(e: TouchEvent) {
         if (!isGameStarted || isGameOver) return;
         e.preventDefault();
-        handleMove(e.touches[0].clientX);
+        const currentTouchX = e.touches[0].clientX;
+        const deltaX = currentTouchX - lastTouchX;
+        player.x += deltaX;
+        lastTouchX = currentTouchX;
     }
 
     function handleTouchEnd() {
-        isMovingLeft = false;
-        isMovingRight = false;
-    }
-
-    function handleMove(touchX: number) {
-        const halfWidth = canvas.width / 2;
-        if (touchX < halfWidth) {
-            isMovingLeft = true;
-            isMovingRight = false;
-        } else {
-            isMovingRight = true;
-            isMovingLeft = false;
-        }
+        isMoving = false;
     }
 
     const handleBlur = () => {
@@ -587,7 +576,7 @@
                 スマホで遊べるSTG
             </h1>
             <p class="text-lg sm:text-2xl font-semibold mb-8 text-gray-300">
-                画面をタッチして左右に移動。<br />
+                画面を指でなぞって移動。<br />
                 PCでは十字キーで操作。<br />
                 弾は自動で発射されます。
             </p>
