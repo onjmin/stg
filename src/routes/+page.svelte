@@ -90,25 +90,20 @@
 
             gameTime += deltaTime;
 
-            if (!isMobile) {
-                const speed = keys.shift ? player.speed / 2 : player.speed;
-                if (keys.arrowleft || keys.a)
-                    player.x -= speed * 60 * deltaTime;
-                if (keys.arrowright || keys.d)
-                    player.x += speed * 60 * deltaTime;
-                if (keys.arrowup || keys.w) player.y -= speed * 60 * deltaTime;
-                if (keys.arrowdown || keys.s)
-                    player.y += speed * 60 * deltaTime;
+            const speed = keys.shift ? player.speed / 2 : player.speed;
+            if (keys.arrowleft || keys.a) player.x -= speed * 60 * deltaTime;
+            if (keys.arrowright || keys.d) player.x += speed * 60 * deltaTime;
+            if (keys.arrowup || keys.w) player.y -= speed * 60 * deltaTime;
+            if (keys.arrowdown || keys.s) player.y += speed * 60 * deltaTime;
 
-                player.x = Math.max(
-                    player.hitboxRadius,
-                    Math.min(player.x, canvas.width - player.hitboxRadius),
-                );
-                player.y = Math.max(
-                    player.hitboxRadius,
-                    Math.min(player.y, canvas.height - player.hitboxRadius),
-                );
-            }
+            player.x = Math.max(
+                player.hitboxRadius,
+                Math.min(player.x, canvas.width - player.hitboxRadius),
+            );
+            player.y = Math.max(
+                player.hitboxRadius,
+                Math.min(player.y, canvas.height - player.hitboxRadius),
+            );
 
             player.fireTimer += deltaTime;
             if (player.fireTimer >= player.fireRate) {
@@ -456,29 +451,45 @@
     };
 
     let lastTouchX = 0;
-    let lastTouchY = 0;
+
+    // 新しいタッチ操作用の状態
+    let isMovingLeft = $state(false);
+    let isMovingRight = $state(false);
+
+    // タッチの開始
     function handleTouchStart(e: TouchEvent) {
         if (!isGameStarted || isGameOver) {
             startGame();
-        } else {
-            lastTouchX = e.touches[0].clientX;
-            lastTouchY = e.touches[0].clientY;
-            player.x = lastTouchX;
-            player.y = lastTouchY;
+            return;
         }
+        e.preventDefault(); // 画面のスクロールを防止
+        handleMove(e.touches[0].clientX);
     }
+
+    // タッチの移動
     function handleTouchMove(e: TouchEvent) {
         if (!isGameStarted || isGameOver) return;
-        const currentTouchX = e.touches[0].clientX;
-        const currentTouchY = e.touches[0].clientY;
-        const deltaX = currentTouchX - lastTouchX;
-        const deltaY = currentTouchY - lastTouchY;
-        player.x += deltaX;
-        player.y += deltaY;
-        lastTouchX = currentTouchX;
-        lastTouchY = currentTouchY;
+        e.preventDefault(); // 画面のスクロールを防止
+        handleMove(e.touches[0].clientX);
     }
-    function handleTouchEnd() {}
+
+    // タッチの終了
+    function handleTouchEnd() {
+        isMovingLeft = false;
+        isMovingRight = false;
+    }
+
+    // プレイヤー移動のロジック
+    function handleMove(touchX: number) {
+        const halfWidth = canvas.width / 2;
+        if (touchX < halfWidth) {
+            isMovingLeft = true;
+            isMovingRight = false;
+        } else {
+            isMovingRight = true;
+            isMovingLeft = false;
+        }
+    }
 
     const handleBlur = () => {
         isPaused = true;
@@ -509,6 +520,35 @@
             window.removeEventListener("blur", handleBlur);
             window.removeEventListener("focus", handleFocus);
         };
+    });
+
+    // アニメーションループにタッチ操作の移動処理を追加
+    $effect(() => {
+        if (!isGameStarted || isGameOver) return;
+
+        const loop = (timestamp: number) => {
+            // deltaTimeの計算は変更なし
+            const deltaTime = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            // ... (既存のループ処理) ...
+
+            // タッチ操作によるプレイヤーの移動
+            if (isMobile) {
+                const speed = player.speed * 60 * deltaTime;
+                if (isMovingLeft) {
+                    player.x -= speed;
+                }
+                if (isMovingRight) {
+                    player.x += speed;
+                }
+            }
+
+            // ... (既存の衝突判定、描画処理) ...
+
+            animationFrameId = requestAnimationFrame(loop);
+        };
+        // ... (requestAnimationFrameの呼び出し) ...
     });
 
     function resizeCanvas() {
