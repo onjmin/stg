@@ -221,12 +221,7 @@
             }
 
             if (boss) {
-                boss.update(deltaTime);
-                if (Math.abs(boss.x - boss.targetX) < 5) {
-                    boss.targetX =
-                        Math.random() * (canvas.width - boss.width) +
-                        boss.width / 2;
-                }
+                boss.update(deltaTime, canvas.width, canvas.height);
 
                 const currentPattern = boss.patterns[boss.currentPatternIndex];
                 if (boss.patternTimer >= currentPattern.time) {

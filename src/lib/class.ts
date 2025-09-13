@@ -156,20 +156,28 @@ export class SpreadEnemy extends Enemy {
 }
 
 export class Boss extends Enemy {
+	// x,y座標の目標地点。画面上の絶対座標
 	targetX: number;
+	targetY: number;
+	// x,y座標の移動のオフセット（-1.0〜1.0）
+	moveOffset = { x: 0, y: 0 };
+
 	fireTimer = 0;
+
+	// パターンに移動ロジックを追加
 	patterns = [
-		{ time: 1, type: "spread", speed: 4 },
-		{ time: 2, type: "circular", speed: 2 },
-		{ time: 3, type: "spiral", speed: 2 },
-		{ time: 4, type: "random", speed: 6 },
+		// moveOffset: x, y共に-1.0〜1.0で、-1.0が左/上、1.0が右/下を目標にする
+		{ time: 1, type: "spread", speed: 4, moveOffset: { x: 0.5, y: -0.5 } },
+		{ time: 2, type: "circular", speed: 2, moveOffset: { x: -0.5, y: 0.5 } },
+		{ time: 3, type: "spiral", speed: 2, moveOffset: { x: 0.8, y: 0.8 } },
+		{ time: 4, type: "random", speed: 6, moveOffset: { x: -0.8, y: -0.8 } },
 	];
 	currentPatternIndex = 0;
 	patternTimer = 0;
 	width = 100;
 	height = 100;
 	hitboxRadius = 25;
-	speed = 0.5;
+	speed = 0.5; // 移動の追従速度（ターゲットにどれだけ速く向かうか）
 	maxHealth: number;
 
 	constructor({
@@ -185,11 +193,29 @@ export class Boss extends Enemy {
 	}) {
 		super({ x, y, health, scoreValue, color: "#f56565" });
 		this.targetX = x;
+		this.targetY = y;
 		this.maxHealth = health;
 	}
 
-	update(deltaTime: number) {
-		this.x += (this.targetX - this.x) * this.speed * 60 * deltaTime;
+	update(deltaTime: number, canvasWidth: number, canvasHeight: number) {
+		// パターンに応じて目標座標を更新
+		const currentPattern = this.patterns[this.currentPatternIndex];
+		const targetRelativeX = (currentPattern.moveOffset.x + 1) / 2;
+		const targetRelativeY = (currentPattern.moveOffset.y + 1) / 2;
+
+		// 目標座標を画面内に収まるように計算
+		this.targetX = targetRelativeX * (canvasWidth - this.width);
+		this.targetY = targetRelativeY * (canvasHeight * 0.4 - this.height);
+
+		// オフセットを考慮して中心座標を計算
+		this.targetX += this.width / 2;
+		this.targetY += this.height / 2;
+
+		// 目標座標に滑らかに移動
+		this.x += (this.targetX - this.x) * this.speed * deltaTime;
+		this.y += (this.targetY - this.y) * this.speed * deltaTime;
+
+		// タイマーとパターン更新はそのまま
 		this.fireTimer += deltaTime;
 		this.patternTimer += deltaTime;
 	}
