@@ -108,7 +108,12 @@
             player.fireTimer += deltaTime;
             if (player.fireTimer >= player.fireRate) {
                 playerBullets.push(
-                    new Bullet(player.x, player.y, { x: 0, y: -1 }, "player"),
+                    new Bullet({
+                        x: player.x,
+                        y: player.y,
+                        direction: { x: 0, y: -1 },
+                        owner: "player",
+                    }),
                 );
                 player.fireTimer = 0;
             }
@@ -141,13 +146,13 @@
                 if (enemy instanceof StraightEnemy) {
                     if (enemy.fireTimer >= enemy.fireRate) {
                         enemyBullets.push(
-                            new Bullet(
-                                enemy.x,
-                                enemy.y + enemy.height,
-                                { x: 0, y: 1 },
-                                "enemy",
-                                "#a0aec0",
-                            ),
+                            new Bullet({
+                                x: enemy.x,
+                                y: enemy.y + enemy.height,
+                                direction: { x: 0, y: 1 },
+                                owner: "enemy",
+                                color: "#a0aec0",
+                            }),
                         );
                         enemy.fireTimer = 0;
                     }
@@ -156,16 +161,16 @@
                         const angles = [-30, -15, 0, 15, 30];
                         angles.forEach((angle) => {
                             const rad = (angle * Math.PI) / 180;
-                            const speedX = Math.sin(rad) * 3;
-                            const speedY = Math.cos(rad) * 3;
+                            const speedX = Math.sin(rad);
+                            const speedY = Math.cos(rad);
                             enemyBullets.push(
-                                new Bullet(
-                                    enemy.x,
-                                    enemy.y + enemy.height,
-                                    { x: speedX, y: speedY },
-                                    "enemy",
-                                    "#a0aec0",
-                                ),
+                                new Bullet({
+                                    x: enemy.x,
+                                    y: enemy.y + enemy.height,
+                                    direction: { x: speedX, y: speedY },
+                                    owner: "enemy",
+                                    color: "#a0aec0",
+                                }),
                             );
                         });
                         enemy.fireTimer = 0;
@@ -180,9 +185,23 @@
                 const wave = enemyWaves[waveIndex];
                 if (gameTime >= wave.time) {
                     if (wave.type === "straight") {
-                        enemies.push(new StraightEnemy(wave.x, -50, 10, 10));
+                        enemies.push(
+                            new StraightEnemy({
+                                x: wave.x,
+                                y: -50,
+                                health: 10,
+                                scoreValue: 10,
+                            }),
+                        );
                     } else if (wave.type === "spread") {
-                        enemies.push(new SpreadEnemy(wave.x, -50, 15, 20));
+                        enemies.push(
+                            new SpreadEnemy({
+                                x: wave.x,
+                                y: -50,
+                                health: 15,
+                                scoreValue: 20,
+                            }),
+                        );
                     }
                     waveIndex++;
                 }
@@ -193,7 +212,12 @@
                 enemies.length === 0 &&
                 !boss
             ) {
-                boss = new Boss(canvas.width / 2, 100, 500, 1000);
+                boss = new Boss({
+                    x: canvas.width / 2,
+                    y: 100,
+                    health: 500,
+                    scoreValue: 1000,
+                });
             }
 
             if (boss) {
@@ -222,15 +246,15 @@
                                 const speedX = Math.sin(rad) * bulletSpeed;
                                 const speedY = Math.cos(rad) * bulletSpeed;
                                 enemyBullets.push(
-                                    new Bullet(
-                                        boss.x,
-                                        boss.y + boss.height / 2,
-                                        { x: speedX, y: speedY },
-                                        "enemy",
-                                        "#ecc94b",
-                                        bulletSpeed,
-                                        8,
-                                    ),
+                                    new Bullet({
+                                        x: boss.x,
+                                        y: boss.y + boss.height / 2,
+                                        direction: { x: speedX, y: speedY },
+                                        owner: "enemy",
+                                        color: "#ecc94b",
+                                        speed: bulletSpeed,
+                                        size: 8,
+                                    }),
                                 );
                             }
                             break;
@@ -241,15 +265,15 @@
                                 const speedX = Math.sin(angle) * bulletSpeed;
                                 const speedY = Math.cos(angle) * bulletSpeed;
                                 enemyBullets.push(
-                                    new Bullet(
-                                        boss.x,
-                                        boss.y + boss.height / 2,
-                                        { x: speedX, y: speedY },
-                                        "enemy",
-                                        "#ecc94b",
-                                        bulletSpeed,
-                                        6,
-                                    ),
+                                    new Bullet({
+                                        x: boss.x,
+                                        y: boss.y + boss.height / 2,
+                                        direction: { x: speedX, y: speedY },
+                                        owner: "enemy",
+                                        color: "#ecc94b",
+                                        speed: bulletSpeed,
+                                        size: 6,
+                                    }),
                                 );
                             }
                             break;
@@ -264,15 +288,15 @@
                                 const speedX = Math.sin(angle) * bulletSpeed;
                                 const speedY = Math.cos(angle) * bulletSpeed;
                                 enemyBullets.push(
-                                    new Bullet(
-                                        boss.x,
-                                        boss.y + boss.height / 2,
-                                        { x: speedX, y: speedY },
-                                        "enemy",
-                                        "#ecc94b",
-                                        bulletSpeed,
-                                        6,
-                                    ),
+                                    new Bullet({
+                                        x: boss.x,
+                                        y: boss.y + boss.height / 2,
+                                        direction: { x: speedX, y: speedY },
+                                        owner: "enemy",
+                                        color: "#ecc94b",
+                                        speed: bulletSpeed,
+                                        size: 6,
+                                    }),
                                 );
                             }
                             break;
@@ -280,15 +304,18 @@
                         case "random":
                             if (Math.random() > 0.5) {
                                 enemyBullets.push(
-                                    new Bullet(
-                                        boss.x,
-                                        boss.y + boss.height / 2,
-                                        { x: Math.random() * 2 - 1, y: 1 },
-                                        "enemy",
-                                        "#ecc94b",
-                                        bulletSpeed,
-                                        6,
-                                    ),
+                                    new Bullet({
+                                        x: boss.x,
+                                        y: boss.y + boss.height / 2,
+                                        direction: {
+                                            x: Math.random() * 2 - 1,
+                                            y: 1,
+                                        },
+                                        owner: "enemy",
+                                        color: "#ecc94b",
+                                        speed: bulletSpeed,
+                                        size: 6,
+                                    }),
                                 );
                             }
                             break;

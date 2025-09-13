@@ -25,15 +25,23 @@ export class Bullet {
 	speed: number;
 	size: number;
 
-	constructor(
-		x: number,
-		y: number,
-		direction: number | { x: number; y: number },
-		owner: string,
-		color: string = "#f6e05e",
-		speed: number = 7,
-		size: number = 5,
-	) {
+	constructor({
+		x,
+		y,
+		direction,
+		owner,
+		color = "#f6e05e",
+		speed = 7,
+		size = 5,
+	}: {
+		x: number;
+		y: number;
+		direction: number | { x: number; y: number };
+		owner: string;
+		color?: string;
+		speed?: number;
+		size?: number;
+	}) {
 		this.x = x;
 		this.y = y;
 		this.direction = direction;
@@ -43,7 +51,6 @@ export class Bullet {
 		this.size = size;
 	}
 
-	// deltaTime を引数として受け取り、秒単位で位置を更新
 	update(deltaTime: number) {
 		if (typeof this.direction === "object") {
 			this.x += this.direction.x * this.speed * 60 * deltaTime;
@@ -75,13 +82,19 @@ export class Enemy {
 	hitboxRadius = 10;
 	fireTimer = 0;
 
-	constructor(
-		x: number,
-		y: number,
-		health: number,
-		scoreValue: number,
-		color: string = "#e53e3e",
-	) {
+	constructor({
+		x,
+		y,
+		health,
+		scoreValue,
+		color = "#e53e3e",
+	}: {
+		x: number;
+		y: number;
+		health: number;
+		scoreValue: number;
+		color?: string;
+	}) {
 		this.x = x;
 		this.y = y;
 		this.health = health;
@@ -89,7 +102,6 @@ export class Enemy {
 		this.color = color;
 	}
 
-	// deltaTime を引数として追加
 	update(deltaTime: number) {
 		this.y += this.speed * 60 * deltaTime;
 	}
@@ -109,28 +121,42 @@ export class Enemy {
 }
 
 export class StraightEnemy extends Enemy {
-	fireRate = 1; // 秒単位に変換
-	constructor(
-		x: number,
-		y: number,
-		health: number,
-		scoreValue: number,
-		color?: string,
-	) {
-		super(x, y, health, scoreValue, color);
+	fireRate = 1;
+
+	constructor({
+		x,
+		y,
+		health,
+		scoreValue,
+		color,
+	}: {
+		x: number;
+		y: number;
+		health: number;
+		scoreValue: number;
+		color?: string;
+	}) {
+		super({ x, y, health, scoreValue, color });
 	}
 }
 
 export class SpreadEnemy extends Enemy {
-	fireRate = 1.5; // 秒単位に変換
-	constructor(
-		x: number,
-		y: number,
-		health: number,
-		scoreValue: number,
-		color?: string,
-	) {
-		super(x, y, health, scoreValue, color);
+	fireRate = 1.5;
+
+	constructor({
+		x,
+		y,
+		health,
+		scoreValue,
+		color,
+	}: {
+		x: number;
+		y: number;
+		health: number;
+		scoreValue: number;
+		color?: string;
+	}) {
+		super({ x, y, health, scoreValue, color });
 	}
 }
 
@@ -151,13 +177,22 @@ export class Boss extends Enemy {
 	speed = 0.5;
 	maxHealth: number;
 
-	constructor(x: number, y: number, health: number, scoreValue: number) {
-		super(x, y, health, scoreValue, "#f56565");
+	constructor({
+		x,
+		y,
+		health,
+		scoreValue,
+	}: {
+		x: number;
+		y: number;
+		health: number;
+		scoreValue: number;
+	}) {
+		super({ x, y, health, scoreValue, color: "#f56565" });
 		this.targetX = x;
 		this.maxHealth = health;
 	}
 
-	// deltaTime を引数として受け取り、秒単位で位置とタイマーを更新
 	update(deltaTime: number) {
 		this.x += (this.targetX - this.x) * this.speed * 60 * deltaTime;
 		this.fireTimer += deltaTime;
