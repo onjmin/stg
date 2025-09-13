@@ -17,6 +17,7 @@
     let isGameOver = $state(false);
     let isGameStarted = $state(false);
     let keys = $state<{ [key: string]: boolean }>({});
+    let isPaused = $state(false);
 
     let isInvincible = $state(false);
     let invincibilityTimer = $state(0);
@@ -82,6 +83,10 @@
         const loop = (timestamp: number) => {
             const deltaTime = (timestamp - lastTimestamp) / 1000; // 秒単位の経過時間を計算
             lastTimestamp = timestamp;
+            if (isPaused) {
+                animationFrameId = requestAnimationFrame(loop);
+                return;
+            }
 
             gameTime += deltaTime;
 
@@ -475,6 +480,14 @@
     }
     function handleTouchEnd() {}
 
+    const handleBlur = () => {
+        isPaused = true;
+    };
+    const handleFocus = () => {
+        isPaused = false;
+        lastTimestamp = performance.now(); // タイムスタンプをリセット
+    };
+
     $effect(() => {
         if (canvas) {
             ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
@@ -486,11 +499,15 @@
         window.addEventListener("keydown", handleKeyDown);
         window.addEventListener("keyup", handleKeyUp);
         window.addEventListener("resize", resizeCanvas);
+        window.addEventListener("blur", handleBlur);
+        window.addEventListener("focus", handleFocus);
 
         return () => {
             window.removeEventListener("keydown", handleKeyDown);
             window.removeEventListener("keyup", handleKeyUp);
             window.removeEventListener("resize", resizeCanvas);
+            window.removeEventListener("blur", handleBlur);
+            window.removeEventListener("focus", handleFocus);
         };
     });
 
