@@ -18,10 +18,9 @@
     let isGameStarted = $state(false);
     let keys = $state<{ [key: string]: boolean }>({});
 
-    // 無敵状態を管理する新しい変数
     let isInvincible = $state(false);
     let invincibilityTimer = $state(0);
-    const INVINCIBILITY_DURATION = 240; // 約4秒間（60fps * 4秒）
+    const INVINCIBILITY_DURATION = 240;
 
     let player = $state(new Player());
     let enemies = $state<Enemy[]>([]);
@@ -78,19 +77,20 @@
         const loop = () => {
             gameTime++;
 
-            // PC版のプレイヤー移動ロジック
             if (!isMobile) {
-                if (keys["ArrowLeft"] || keys["a"]) {
-                    player.x -= player.speed;
+                // ゲームループ内のプレイヤー移動ロジック
+                if (keys.arrowleft || keys.a) {
+                    // shiftが押されていれば減速、そうでなければ通常速度
+                    player.x -= keys.shift ? player.speed / 2 : player.speed;
                 }
-                if (keys["ArrowRight"] || keys["d"]) {
-                    player.x += player.speed;
+                if (keys.arrowright || keys.d) {
+                    player.x += keys.shift ? player.speed / 2 : player.speed;
                 }
-                if (keys["ArrowUp"] || keys["w"]) {
-                    player.y -= player.speed;
+                if (keys.arrowup || keys.w) {
+                    player.y -= keys.shift ? player.speed / 2 : player.speed;
                 }
-                if (keys["ArrowDown"] || keys["s"]) {
-                    player.y += player.speed;
+                if (keys.arrowdown || keys.s) {
+                    player.y += keys.shift ? player.speed / 2 : player.speed;
                 }
                 if (player.x < player.hitboxRadius)
                     player.x = player.hitboxRadius;
@@ -102,7 +102,7 @@
                     player.y = canvas.height - player.hitboxRadius;
             }
 
-            // プレイヤーの自動発射
+            // プレイヤーの自動発射ロジックをここに移動
             player.fireTimer++;
             if (player.fireTimer >= player.fireRate) {
                 playerBullets.push(
@@ -111,7 +111,6 @@
                 player.fireTimer = 0;
             }
 
-            // 無敵タイマーの更新
             if (isInvincible) {
                 invincibilityTimer++;
                 if (invincibilityTimer >= INVINCIBILITY_DURATION) {
@@ -120,7 +119,6 @@
                 }
             }
 
-            // 弾丸の更新
             playerBullets = playerBullets.filter((b) => {
                 b.update();
                 return b.y > -b.size;
@@ -134,7 +132,6 @@
                 );
             });
 
-            // 敵の更新
             enemies.forEach((enemy) => {
                 enemy.y += enemy.speed;
                 enemy.fireTimer++;
@@ -179,7 +176,6 @@
                 (enemy) => enemy.y < canvas.height + enemy.height,
             );
 
-            // 敵の出現
             if (waveIndex < enemyWaves.length) {
                 const wave = enemyWaves[waveIndex];
                 if (gameTime >= wave.time) {
@@ -192,7 +188,6 @@
                 }
             }
 
-            // ボス出現
             if (
                 waveIndex >= enemyWaves.length &&
                 enemies.length === 0 &&
@@ -309,7 +304,6 @@
                 let newScore = score;
                 let playerHit = false;
 
-                // プレイヤーの弾丸と敵の衝突
                 newPlayerBullets.forEach((bullet, bIndex) => {
                     let hitEnemy = false;
                     newEnemies.forEach((enemy, eIndex) => {
@@ -347,7 +341,6 @@
                     }
                 });
 
-                // 敵とプレイヤーの衝突
                 if (!isInvincible) {
                     newEnemies.forEach((enemy, eIndex) => {
                         const distance = Math.hypot(
@@ -362,8 +355,6 @@
                             if (lives <= 0) {
                                 isGameOver = true;
                             } else {
-                                player.x = canvas.width / 2;
-                                player.y = canvas.height - 80;
                                 isInvincible = true;
                             }
                             newEnemies.splice(eIndex, 1);
@@ -372,7 +363,6 @@
                         }
                     });
 
-                    // 敵の弾丸とプレイヤーの衝突
                     newEnemyBullets.forEach((bullet, bIndex) => {
                         const distance = Math.hypot(
                             bullet.x - player.x,
@@ -384,14 +374,11 @@
                             if (lives <= 0) {
                                 isGameOver = true;
                             } else {
-                                player.x = canvas.width / 2;
-                                player.y = canvas.height - 80;
                                 isInvincible = true;
                             }
                         }
                     });
                 } else {
-                    // 無敵時間中も敵は削除
                     newEnemies.forEach((enemy, eIndex) => {
                         if (enemy.y > canvas.height) {
                             newEnemies.splice(eIndex, 1);
@@ -408,7 +395,6 @@
             checkCollisions();
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // 無敵時間中は点滅
             if (
                 !isInvincible ||
                 (isInvincible && Math.floor(invincibilityTimer / 10) % 2 === 0)
@@ -465,10 +451,7 @@
         lastTouchX = currentTouchX;
         lastTouchY = currentTouchY;
     }
-    function handleTouchEnd() {
-        // タッチ終了時の弾発射ロジックは自動発射に置き換え
-        //if (!isGameStarted || isGameOver) return;
-    }
+    function handleTouchEnd() {}
 
     $effect(() => {
         if (canvas) {
