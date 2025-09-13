@@ -243,8 +243,8 @@
                             for (let i = -2; i <= 2; i++) {
                                 const angle = i * 15;
                                 const rad = (angle * Math.PI) / 180;
-                                const speedX = Math.sin(rad) * bulletSpeed;
-                                const speedY = Math.cos(rad) * bulletSpeed;
+                                const speedX = Math.sin(rad);
+                                const speedY = Math.cos(rad);
                                 enemyBullets.push(
                                     new Bullet({
                                         x: boss.x,
