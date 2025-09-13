@@ -9,25 +9,21 @@
         StraightEnemy,
     } from "$lib/class";
 
-    // UI要素の参照は不要。Svelteのリアクティビティで直接DOMを操作する。
     let canvas: HTMLCanvasElement;
     let ctx: CanvasRenderingContext2D;
 
-    // ゲームの状態を管理するルーン
     let score = $state(0);
     let lives = $state(3);
     let isGameOver = $state(false);
     let isGameStarted = $state(false);
     let keys = $state<{ [key: string]: boolean }>({});
 
-    // ゲームオブジェクトの管理
     let player = $state(new Player());
     let enemies = $state<Enemy[]>([]);
     let playerBullets = $state<Bullet[]>([]);
     let enemyBullets = $state<Bullet[]>([]);
     let boss = $state<Boss | null>(null);
 
-    // ゲーム進行の状態
     let waveIndex = $state(0);
     let gameTime = $state(0);
     const enemyWaves = [
@@ -48,7 +44,6 @@
     const isMobile =
         "ontouchstart" in globalThis || navigator.maxTouchPoints > 0;
 
-    // ゲーム開始・リスタート
     const startGame = () => {
         isGameStarted = true;
         isGameOver = false;
@@ -60,14 +55,12 @@
         boss = null;
         waveIndex = 0;
         gameTime = 0;
-        // プレイヤーの初期位置を再設定
         if (canvas) {
             player.x = canvas.width / 2;
             player.y = canvas.height - 80;
         }
     };
 
-    // ゲームループを`$effect`で実装
     $effect(() => {
         if (!isGameStarted || isGameOver) {
             return;
@@ -77,6 +70,31 @@
 
         const loop = () => {
             gameTime++;
+
+            // プレイヤーの移動ロジックをここに追加
+            if (!isMobile) {
+                if (keys["ArrowLeft"] || keys["a"]) {
+                    player.x -= player.speed;
+                }
+                if (keys["ArrowRight"] || keys["d"]) {
+                    player.x += player.speed;
+                }
+                if (keys["ArrowUp"] || keys["w"]) {
+                    player.y -= player.speed;
+                }
+                if (keys["ArrowDown"] || keys["s"]) {
+                    player.y += player.speed;
+                }
+
+                if (player.x < player.hitboxRadius)
+                    player.x = player.hitboxRadius;
+                if (player.x > canvas.width - player.hitboxRadius)
+                    player.x = canvas.width - player.hitboxRadius;
+                if (player.y < player.hitboxRadius)
+                    player.y = player.hitboxRadius;
+                if (player.y > canvas.height - player.hitboxRadius)
+                    player.y = canvas.height - player.hitboxRadius;
+            }
 
             // プレイヤーの更新
             player.fireTimer++;
@@ -184,7 +202,6 @@
                     boss.patternTimer = 0;
                 }
 
-                // ボスの発射
                 if (boss.fireTimer >= 30) {
                     const bulletSpeed = currentPattern.speed;
                     switch (currentPattern.type) {
@@ -270,7 +287,6 @@
                 }
             }
 
-            // 当たり判定
             const checkCollisions = () => {
                 const newPlayerBullets = [...playerBullets];
                 const newEnemies = [...enemies];
@@ -278,7 +294,6 @@
                 let newScore = score;
                 let playerHit = false;
 
-                // プレイヤーの弾丸と敵の衝突
                 newPlayerBullets.forEach((bullet, bIndex) => {
                     let hitEnemy = false;
                     newEnemies.forEach((enemy, eIndex) => {
@@ -296,7 +311,6 @@
                         }
                     });
 
-                    // プレイヤーの弾丸とボスの衝突
                     if (boss && !hitEnemy) {
                         const distance = Math.hypot(
                             bullet.x - boss.x,
@@ -317,7 +331,6 @@
                     }
                 });
 
-                // 敵とプレイヤーの衝突
                 newEnemies.forEach((enemy, eIndex) => {
                     const distance = Math.hypot(
                         enemy.x - player.x,
@@ -331,13 +344,12 @@
                             player.x = canvas.width / 2;
                             player.y = canvas.height - 80;
                         }
-                        newEnemies.splice(eIndex, 1); // 敵を削除
+                        newEnemies.splice(eIndex, 1);
                     } else if (enemy.y > canvas.height) {
                         newEnemies.splice(eIndex, 1);
                     }
                 });
 
-                // 敵の弾丸とプレイヤーの衝突
                 newEnemyBullets.forEach((bullet, bIndex) => {
                     const distance = Math.hypot(
                         bullet.x - player.x,
@@ -363,7 +375,6 @@
 
             checkCollisions();
 
-            // 描画
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             player.draw(ctx);
             for (const b of playerBullets) {
@@ -386,44 +397,12 @@
         return () => cancelAnimationFrame(animationFrameId);
     });
 
-    // プレイヤーの移動
-    $effect(() => {
-        if (!isGameStarted || isGameOver) return;
-
-        // プレイヤーの移動
-        if (keys["ArrowLeft"] || keys["a"]) {
-            player.x -= player.speed;
-        }
-        if (keys["ArrowRight"] || keys["d"]) {
-            player.x += player.speed;
-        }
-        if (keys["ArrowUp"] || keys["w"]) {
-            player.y -= player.speed;
-        }
-        if (keys["ArrowDown"] || keys["s"]) {
-            player.y += player.speed;
-        }
-
-        // プレイヤーの位置を画面内に制限
-        if (player.x < player.hitboxRadius) player.x = player.hitboxRadius;
-        if (player.x > canvas?.width - player.hitboxRadius)
-            player.x = canvas.width - player.hitboxRadius;
-        if (player.y < player.hitboxRadius) player.y = player.hitboxRadius;
-        if (player.y > canvas?.height - player.hitboxRadius)
-            player.y = canvas.height - player.hitboxRadius;
-    });
-
     // キーボードイベントハンドラ
     const handleKeyDown = (e: KeyboardEvent) => {
         keys[e.key.toLowerCase()] = true;
         if (e.key === " " && player.fireTimer >= player.fireRate) {
             playerBullets.push(
-                new Bullet(
-                    player.x,
-                    player.y,
-                    { x: 0, y: -1 }, // 上向きに発射
-                    "player",
-                ),
+                new Bullet(player.x, player.y, { x: 0, y: -1 }, "player"),
             );
             player.fireTimer = 0;
         }
@@ -460,18 +439,12 @@
         if (!isGameStarted || isGameOver) return;
         if (player.fireTimer >= player.fireRate) {
             playerBullets.push(
-                new Bullet(
-                    player.x,
-                    player.y,
-                    { x: 0, y: -1 }, // 上向きに発射
-                    "player",
-                ),
+                new Bullet(player.x, player.y, { x: 0, y: -1 }, "player"),
             );
             player.fireTimer = 0;
         }
     }
 
-    // キャンバスとプレイヤーの初期化
     $effect(() => {
         if (canvas) {
             ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
@@ -501,7 +474,6 @@
         }
     }
 
-    // ボスHPゲージの計算
     const bossHealthPercentage = $derived(
         boss ? (boss.health / boss.maxHealth) * 100 : 0,
     );
