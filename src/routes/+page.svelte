@@ -96,6 +96,12 @@
             if (keys.arrowup || keys.w) player.y -= speed * 60 * deltaTime;
             if (keys.arrowdown || keys.s) player.y += speed * 60 * deltaTime;
 
+            if (isMobile) {
+                const mobileSpeed = player.speed * 60 * deltaTime;
+                if (isMovingLeft) player.x -= mobileSpeed;
+                if (isMovingRight) player.x += mobileSpeed;
+            }
+
             player.x = Math.max(
                 player.hitboxRadius,
                 Math.min(player.x, canvas.width - player.hitboxRadius),
@@ -451,35 +457,29 @@
     };
 
     let lastTouchX = 0;
-
-    // 新しいタッチ操作用の状態
     let isMovingLeft = $state(false);
     let isMovingRight = $state(false);
 
-    // タッチの開始
     function handleTouchStart(e: TouchEvent) {
         if (!isGameStarted || isGameOver) {
             startGame();
             return;
         }
-        e.preventDefault(); // 画面のスクロールを防止
+        e.preventDefault();
         handleMove(e.touches[0].clientX);
     }
 
-    // タッチの移動
     function handleTouchMove(e: TouchEvent) {
         if (!isGameStarted || isGameOver) return;
-        e.preventDefault(); // 画面のスクロールを防止
+        e.preventDefault();
         handleMove(e.touches[0].clientX);
     }
 
-    // タッチの終了
     function handleTouchEnd() {
         isMovingLeft = false;
         isMovingRight = false;
     }
 
-    // プレイヤー移動のロジック
     function handleMove(touchX: number) {
         const halfWidth = canvas.width / 2;
         if (touchX < halfWidth) {
@@ -520,35 +520,6 @@
             window.removeEventListener("blur", handleBlur);
             window.removeEventListener("focus", handleFocus);
         };
-    });
-
-    // アニメーションループにタッチ操作の移動処理を追加
-    $effect(() => {
-        if (!isGameStarted || isGameOver) return;
-
-        const loop = (timestamp: number) => {
-            // deltaTimeの計算は変更なし
-            const deltaTime = (timestamp - lastTimestamp) / 1000;
-            lastTimestamp = timestamp;
-
-            // ... (既存のループ処理) ...
-
-            // タッチ操作によるプレイヤーの移動
-            if (isMobile) {
-                const speed = player.speed * 60 * deltaTime;
-                if (isMovingLeft) {
-                    player.x -= speed;
-                }
-                if (isMovingRight) {
-                    player.x += speed;
-                }
-            }
-
-            // ... (既存の衝突判定、描画処理) ...
-
-            animationFrameId = requestAnimationFrame(loop);
-        };
-        // ... (requestAnimationFrameの呼び出し) ...
     });
 
     function resizeCanvas() {
@@ -645,28 +616,5 @@
                 リスタート
             </button>
         </div>
-    </div>
-
-    <div class="md:hidden absolute bottom-5 w-full flex justify-center gap-5">
-        <button
-            ontouchstart={() => {
-                keys["a"] = true;
-            }}
-            ontouchend={() => {
-                keys["a"] = false;
-            }}
-            class="bg-gray-600 text-white rounded-full w-20 h-20 text-3xl flex justify-center items-center cursor-pointer select-none shadow-lg active:scale-95 transition-transform"
-            >◀</button
-        >
-        <button
-            ontouchstart={() => {
-                keys["d"] = true;
-            }}
-            ontouchend={() => {
-                keys["d"] = false;
-            }}
-            class="bg-gray-600 text-white rounded-full w-20 h-20 text-3xl flex justify-center items-center cursor-pointer select-none shadow-lg active:scale-95 transition-transform"
-            >▶</button
-        >
     </div>
 </div>
