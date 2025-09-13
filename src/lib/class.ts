@@ -19,7 +19,7 @@ export class Player {
 export class Bullet {
 	x: number;
 	y: number;
-	direction: number | { x: number; y: number };
+	direction: { x: number; y: number };
 	owner: string;
 	color: string;
 	speed: number;
@@ -36,7 +36,7 @@ export class Bullet {
 	}: {
 		x: number;
 		y: number;
-		direction: number | { x: number; y: number };
+		direction: { x: number; y: number };
 		owner: string;
 		color?: string;
 		speed?: number;
@@ -52,13 +52,8 @@ export class Bullet {
 	}
 
 	update(deltaTime: number) {
-		if (typeof this.direction === "object") {
-			this.x += this.direction.x * this.speed * 60 * deltaTime;
-			this.y += this.direction.y * this.speed * 60 * deltaTime;
-		} else {
-			this.x += Math.cos(this.direction) * this.speed * 60 * deltaTime;
-			this.y += Math.sin(this.direction) * this.speed * 60 * deltaTime;
-		}
+		this.x += this.direction.x * this.speed * 60 * deltaTime;
+		this.y += this.direction.y * this.speed * 60 * deltaTime;
 	}
 
 	draw(ctx: CanvasRenderingContext2D) {

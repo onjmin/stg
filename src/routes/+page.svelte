@@ -325,50 +325,66 @@
             }
 
             const checkCollisions = () => {
-                const newPlayerBullets = [...playerBullets];
-                const newEnemies = [...enemies];
-                const newEnemyBullets = [...enemyBullets];
+                // 衝突した弾丸と敵を追跡するためのSetを作成
+                const bulletsToRemove = new Set();
+                const enemiesToRemove = new Set();
+
                 let newScore = score;
 
-                newPlayerBullets.forEach((bullet, bIndex) => {
-                    let hitEnemy = false;
-                    newEnemies.forEach((enemy, eIndex) => {
+                // プレイヤーの弾丸と敵の衝突判定
+                playerBullets.forEach((bullet) => {
+                    enemies.forEach((enemy) => {
                         const distance = Math.hypot(
                             bullet.x - enemy.x,
                             bullet.y - enemy.y,
                         );
                         if (distance < enemy.hitboxRadius + bullet.size) {
-                            hitEnemy = true;
+                            // 衝突した弾丸と敵をSetに追加
+                            bulletsToRemove.add(bullet);
+                            enemiesToRemove.add(enemy);
                             enemy.health -= 1;
                             if (enemy.health <= 0) {
                                 newScore += enemy.scoreValue;
-                                newEnemies.splice(eIndex, 1);
                             }
                         }
                     });
 
-                    if (boss && !hitEnemy) {
+                    // ボスとの衝突判定
+                    if (boss) {
                         const distance = Math.hypot(
                             bullet.x - boss.x,
                             bullet.y - boss.y,
                         );
                         if (distance < boss.hitboxRadius + bullet.size) {
-                            hitEnemy = true;
+                            bulletsToRemove.add(bullet);
                             boss.health -= 1;
                             if (boss.health <= 0) {
                                 newScore += boss.scoreValue;
-                                boss = null;
                             }
                         }
                     }
-
-                    if (!hitEnemy) {
-                        newPlayerBullets.splice(bIndex, 1);
-                    }
                 });
 
+                // 敵の弾丸とプレイヤーの衝突判定
                 if (!isInvincible) {
-                    newEnemies.forEach((enemy, eIndex) => {
+                    enemyBullets.forEach((bullet) => {
+                        const distance = Math.hypot(
+                            bullet.x - player.x,
+                            bullet.y - player.y,
+                        );
+                        if (distance < player.hitboxRadius + bullet.size) {
+                            bulletsToRemove.add(bullet);
+                            lives--;
+                            if (lives <= 0) {
+                                isGameOver = true;
+                            } else {
+                                isInvincible = true;
+                            }
+                        }
+                    });
+
+                    // 敵とプレイヤーの衝突判定
+                    enemies.forEach((enemy) => {
                         const distance = Math.hypot(
                             enemy.x - player.x,
                             enemy.y - player.y,
@@ -383,38 +399,22 @@
                             } else {
                                 isInvincible = true;
                             }
-                            newEnemies.splice(eIndex, 1);
-                        } else if (enemy.y > canvas.height) {
-                            newEnemies.splice(eIndex, 1);
-                        }
-                    });
-
-                    newEnemyBullets.forEach((bullet, bIndex) => {
-                        const distance = Math.hypot(
-                            bullet.x - player.x,
-                            bullet.y - player.y,
-                        );
-                        if (distance < player.hitboxRadius + bullet.size) {
-                            newEnemyBullets.splice(bIndex, 1);
-                            lives--;
-                            if (lives <= 0) {
-                                isGameOver = true;
-                            } else {
-                                isInvincible = true;
-                            }
-                        }
-                    });
-                } else {
-                    newEnemies.forEach((enemy, eIndex) => {
-                        if (enemy.y > canvas.height) {
-                            newEnemies.splice(eIndex, 1);
+                            enemiesToRemove.add(enemy);
                         }
                     });
                 }
 
-                playerBullets = newPlayerBullets;
-                enemies = newEnemies;
-                enemyBullets = newEnemyBullets;
+                // `Set`を使って、衝突したオブジェクトを元の配列から削除
+                playerBullets = playerBullets.filter(
+                    (bullet) => !bulletsToRemove.has(bullet),
+                );
+                enemies = enemies.filter(
+                    (enemy) => enemy.health > 0 && !enemiesToRemove.has(enemy),
+                );
+                enemyBullets = enemyBullets.filter(
+                    (bullet) => !bulletsToRemove.has(bullet),
+                );
+
                 score = newScore;
             };
 
