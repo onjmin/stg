@@ -3,7 +3,7 @@ export class Player {
 	x = 0;
 	y = 0;
 	speed = 5;
-	fireRate = 10;
+	fireRate = 0.2; // 発射間隔を秒単位で設定
 	fireTimer = 0;
 	hitboxRadius = 5;
 
@@ -43,13 +43,14 @@ export class Bullet {
 		this.size = size;
 	}
 
-	update() {
+	// deltaTime を引数として受け取り、秒単位で位置を更新
+	update(deltaTime: number) {
 		if (typeof this.direction === "object") {
-			this.x += this.direction.x * this.speed;
-			this.y += this.direction.y * this.speed;
+			this.x += this.direction.x * this.speed * 60 * deltaTime;
+			this.y += this.direction.y * this.speed * 60 * deltaTime;
 		} else {
-			this.x += Math.cos(this.direction) * this.speed;
-			this.y += Math.sin(this.direction) * this.speed;
+			this.x += Math.cos(this.direction) * this.speed * 60 * deltaTime;
+			this.y += Math.sin(this.direction) * this.speed * 60 * deltaTime;
 		}
 	}
 
@@ -70,7 +71,7 @@ export class Enemy {
 	width = 30;
 	height = 30;
 	color: string;
-	speed = 1;
+	speed = 4;
 	hitboxRadius = 10;
 	fireTimer = 0;
 
@@ -88,6 +89,11 @@ export class Enemy {
 		this.color = color;
 	}
 
+	// deltaTime を引数として追加
+	update(deltaTime: number) {
+		this.y += this.speed * 60 * deltaTime;
+	}
+
 	draw(ctx: CanvasRenderingContext2D) {
 		ctx.beginPath();
 		ctx.rect(
@@ -103,7 +109,7 @@ export class Enemy {
 }
 
 export class StraightEnemy extends Enemy {
-	fireRate = 60;
+	fireRate = 1; // 秒単位に変換
 	constructor(
 		x: number,
 		y: number,
@@ -116,7 +122,7 @@ export class StraightEnemy extends Enemy {
 }
 
 export class SpreadEnemy extends Enemy {
-	fireRate = 100;
+	fireRate = 1.5; // 秒単位に変換
 	constructor(
 		x: number,
 		y: number,
@@ -132,10 +138,10 @@ export class Boss extends Enemy {
 	targetX: number;
 	fireTimer = 0;
 	patterns = [
-		{ time: 60, type: "spread", speed: 4 },
-		{ time: 120, type: "circular", speed: 2 },
-		{ time: 180, type: "spiral", speed: 2 },
-		{ time: 240, type: "random", speed: 6 },
+		{ time: 1, type: "spread", speed: 4 },
+		{ time: 2, type: "circular", speed: 2 },
+		{ time: 3, type: "spiral", speed: 2 },
+		{ time: 4, type: "random", speed: 6 },
 	];
 	currentPatternIndex = 0;
 	patternTimer = 0;
@@ -149,6 +155,13 @@ export class Boss extends Enemy {
 		super(x, y, health, scoreValue, "#f56565");
 		this.targetX = x;
 		this.maxHealth = health;
+	}
+
+	// deltaTime を引数として受け取り、秒単位で位置とタイマーを更新
+	update(deltaTime: number) {
+		this.x += (this.targetX - this.x) * this.speed * 60 * deltaTime;
+		this.fireTimer += deltaTime;
+		this.patternTimer += deltaTime;
 	}
 
 	draw(ctx: CanvasRenderingContext2D) {

@@ -20,7 +20,7 @@
 
     let isInvincible = $state(false);
     let invincibilityTimer = $state(0);
-    const INVINCIBILITY_DURATION = 240;
+    const INVINCIBILITY_DURATION = 4; // 秒単位に変更
 
     let player = $state(new Player());
     let enemies = $state<Enemy[]>([]);
@@ -31,18 +31,21 @@
     let waveIndex = $state(0);
     let gameTime = $state(0);
     const enemyWaves = [
-        { time: 50, type: "straight", x: 50 },
-        { time: 100, type: "straight", x: 150 },
-        { time: 150, type: "straight", x: 250 },
-        { time: 200, type: "straight", x: 50 },
-        { time: 250, type: "spread", x: 150 },
-        { time: 300, type: "spread", x: 250 },
-        { time: 400, type: "straight", x: 100 },
-        { time: 450, type: "spread", x: 200 },
-        { time: 500, type: "straight", x: 150 },
-        { time: 600, type: "straight", x: 50 },
-        { time: 650, type: "straight", x: 150 },
-        { time: 700, type: "spread", x: 250 },
+        { time: 1, type: "straight", x: 50 },
+        { time: 2, type: "straight", x: 150 },
+        { time: 3, type: "straight", x: 250 },
+        { time: 4, type: "straight", x: 50 },
+        { time: 5, type: "spread", x: 150 },
+        { time: 6, type: "spread", x: 250 },
+        { time: 7, type: "straight", x: 100 },
+        { time: 8, type: "spread", x: 200 },
+        { time: 9, type: "straight", x: 150 },
+        { time: 10, type: "straight", x: 50 },
+        { time: 11, type: "straight", x: 150 },
+        { time: 12, type: "spread", x: 250 },
+        { time: 13, type: "straight", x: 50 },
+        { time: 14, type: "spread", x: 150 },
+        { time: 15, type: "straight", x: 250 },
     ];
 
     const isMobile =
@@ -65,45 +68,44 @@
             player.x = canvas.width / 2;
             player.y = canvas.height - 80;
         }
+        lastTimestamp = performance.now(); // ゲーム開始時にタイムスタンプを初期化
     };
+
+    let animationFrameId: number;
+    let lastTimestamp: number = 0;
 
     $effect(() => {
         if (!isGameStarted || isGameOver) {
             return;
         }
 
-        let animationFrameId: number;
+        const loop = (timestamp: number) => {
+            const deltaTime = (timestamp - lastTimestamp) / 1000; // 秒単位の経過時間を計算
+            lastTimestamp = timestamp;
 
-        const loop = () => {
-            gameTime++;
+            gameTime += deltaTime;
 
             if (!isMobile) {
-                // ゲームループ内のプレイヤー移動ロジック
-                if (keys.arrowleft || keys.a) {
-                    // shiftが押されていれば減速、そうでなければ通常速度
-                    player.x -= keys.shift ? player.speed / 2 : player.speed;
-                }
-                if (keys.arrowright || keys.d) {
-                    player.x += keys.shift ? player.speed / 2 : player.speed;
-                }
-                if (keys.arrowup || keys.w) {
-                    player.y -= keys.shift ? player.speed / 2 : player.speed;
-                }
-                if (keys.arrowdown || keys.s) {
-                    player.y += keys.shift ? player.speed / 2 : player.speed;
-                }
-                if (player.x < player.hitboxRadius)
-                    player.x = player.hitboxRadius;
-                if (player.x > canvas.width - player.hitboxRadius)
-                    player.x = canvas.width - player.hitboxRadius;
-                if (player.y < player.hitboxRadius)
-                    player.y = player.hitboxRadius;
-                if (player.y > canvas.height - player.hitboxRadius)
-                    player.y = canvas.height - player.hitboxRadius;
+                const speed = keys.shift ? player.speed / 2 : player.speed;
+                if (keys.arrowleft || keys.a)
+                    player.x -= speed * 60 * deltaTime;
+                if (keys.arrowright || keys.d)
+                    player.x += speed * 60 * deltaTime;
+                if (keys.arrowup || keys.w) player.y -= speed * 60 * deltaTime;
+                if (keys.arrowdown || keys.s)
+                    player.y += speed * 60 * deltaTime;
+
+                player.x = Math.max(
+                    player.hitboxRadius,
+                    Math.min(player.x, canvas.width - player.hitboxRadius),
+                );
+                player.y = Math.max(
+                    player.hitboxRadius,
+                    Math.min(player.y, canvas.height - player.hitboxRadius),
+                );
             }
 
-            // プレイヤーの自動発射ロジックをここに移動
-            player.fireTimer++;
+            player.fireTimer += deltaTime;
             if (player.fireTimer >= player.fireRate) {
                 playerBullets.push(
                     new Bullet(player.x, player.y, { x: 0, y: -1 }, "player"),
@@ -112,7 +114,7 @@
             }
 
             if (isInvincible) {
-                invincibilityTimer++;
+                invincibilityTimer += deltaTime;
                 if (invincibilityTimer >= INVINCIBILITY_DURATION) {
                     isInvincible = false;
                     invincibilityTimer = 0;
@@ -120,11 +122,11 @@
             }
 
             playerBullets = playerBullets.filter((b) => {
-                b.update();
+                b.update(deltaTime);
                 return b.y > -b.size;
             });
             enemyBullets = enemyBullets.filter((b) => {
-                b.update();
+                b.update(deltaTime);
                 return (
                     b.y < canvas.height + b.size &&
                     b.x > -b.size &&
@@ -133,43 +135,41 @@
             });
 
             enemies.forEach((enemy) => {
-                enemy.y += enemy.speed;
-                enemy.fireTimer++;
-                if (
-                    enemy instanceof StraightEnemy &&
-                    enemy.fireTimer >= enemy.fireRate
-                ) {
-                    enemyBullets.push(
-                        new Bullet(
-                            enemy.x,
-                            enemy.y + enemy.height,
-                            { x: 0, y: 1 },
-                            "enemy",
-                            "#a0aec0",
-                        ),
-                    );
-                    enemy.fireTimer = 0;
-                }
-                if (
-                    enemy instanceof SpreadEnemy &&
-                    enemy.fireTimer >= enemy.fireRate
-                ) {
-                    const angles = [-30, -15, 0, 15, 30];
-                    angles.forEach((angle) => {
-                        const rad = (angle * Math.PI) / 180;
-                        const speedX = Math.sin(rad) * 3;
-                        const speedY = Math.cos(rad) * 3;
+                enemy.y += enemy.speed * 60 * deltaTime;
+                enemy.fireTimer += deltaTime;
+
+                if (enemy instanceof StraightEnemy) {
+                    if (enemy.fireTimer >= enemy.fireRate) {
                         enemyBullets.push(
                             new Bullet(
                                 enemy.x,
                                 enemy.y + enemy.height,
-                                { x: speedX, y: speedY },
+                                { x: 0, y: 1 },
                                 "enemy",
                                 "#a0aec0",
                             ),
                         );
-                    });
-                    enemy.fireTimer = 0;
+                        enemy.fireTimer = 0;
+                    }
+                } else if (enemy instanceof SpreadEnemy) {
+                    if (enemy.fireTimer >= enemy.fireRate) {
+                        const angles = [-30, -15, 0, 15, 30];
+                        angles.forEach((angle) => {
+                            const rad = (angle * Math.PI) / 180;
+                            const speedX = Math.sin(rad) * 3;
+                            const speedY = Math.cos(rad) * 3;
+                            enemyBullets.push(
+                                new Bullet(
+                                    enemy.x,
+                                    enemy.y + enemy.height,
+                                    { x: speedX, y: speedY },
+                                    "enemy",
+                                    "#a0aec0",
+                                ),
+                            );
+                        });
+                        enemy.fireTimer = 0;
+                    }
                 }
             });
             enemies = enemies.filter(
@@ -197,14 +197,13 @@
             }
 
             if (boss) {
-                boss.x += (boss.targetX - boss.x) * boss.speed;
+                boss.update(deltaTime);
                 if (Math.abs(boss.x - boss.targetX) < 5) {
                     boss.targetX =
                         Math.random() * (canvas.width - boss.width) +
                         boss.width / 2;
                 }
-                boss.fireTimer++;
-                boss.patternTimer++;
+
                 const currentPattern = boss.patterns[boss.currentPatternIndex];
                 if (boss.patternTimer >= currentPattern.time) {
                     boss.currentPatternIndex =
@@ -212,7 +211,8 @@
                     boss.patternTimer = 0;
                 }
 
-                if (boss.fireTimer >= 30) {
+                if (boss.fireTimer >= 0.5) {
+                    // 0.5秒ごとに発射
                     const bulletSpeed = currentPattern.speed;
                     switch (currentPattern.type) {
                         case "spread":
@@ -256,7 +256,7 @@
                         }
                         case "spiral": {
                             const numSpiralBullets = 8;
-                            const rotationSpeed = boss.fireTimer * 0.1;
+                            const rotationSpeed = boss.fireTimer;
                             for (let i = 0; i < numSpiralBullets; i++) {
                                 const angle =
                                     (i / numSpiralBullets) * Math.PI * 2 +
@@ -302,7 +302,6 @@
                 const newEnemies = [...enemies];
                 const newEnemyBullets = [...enemyBullets];
                 let newScore = score;
-                let playerHit = false;
 
                 newPlayerBullets.forEach((bullet, bIndex) => {
                     let hitEnemy = false;
@@ -397,7 +396,8 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (
                 !isInvincible ||
-                (isInvincible && Math.floor(invincibilityTimer / 10) % 2 === 0)
+                (isInvincible &&
+                    Math.floor((invincibilityTimer * 60) / 10) % 2 === 0)
             ) {
                 player.draw(ctx);
             }
