@@ -1,2 +1,613 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+<script lang="ts">
+    import { tick } from "svelte";
+    import {
+        Boss,
+        Bullet,
+        Enemy,
+        Player,
+        SpreadEnemy,
+        StraightEnemy,
+    } from "$lib/class";
+
+    // UI要素の参照は不要。Svelteのリアクティビティで直接DOMを操作する。
+    let canvas: HTMLCanvasElement;
+    let ctx: CanvasRenderingContext2D;
+
+    // ゲームの状態を管理するルーン
+    let score = $state(0);
+    let lives = $state(3);
+    let isGameOver = $state(false);
+    let isGameStarted = $state(false);
+    let keys = $state<{ [key: string]: boolean }>({});
+
+    // ゲームオブジェクトの管理
+    let player = $state(new Player());
+    let enemies = $state<Enemy[]>([]);
+    let playerBullets = $state<Bullet[]>([]);
+    let enemyBullets = $state<Bullet[]>([]);
+    let boss = $state<Boss | null>(null);
+
+    // ゲーム進行の状態
+    let waveIndex = $state(0);
+    let gameTime = $state(0);
+    const enemyWaves = [
+        { time: 50, type: "straight", x: 50 },
+        { time: 100, type: "straight", x: 150 },
+        { time: 150, type: "straight", x: 250 },
+        { time: 200, type: "straight", x: 50 },
+        { time: 250, type: "spread", x: 150 },
+        { time: 300, type: "spread", x: 250 },
+        { time: 400, type: "straight", x: 100 },
+        { time: 450, type: "spread", x: 200 },
+        { time: 500, type: "straight", x: 150 },
+        { time: 600, type: "straight", x: 50 },
+        { time: 650, type: "straight", x: 150 },
+        { time: 700, type: "spread", x: 250 },
+    ];
+
+    const isMobile =
+        "ontouchstart" in globalThis || navigator.maxTouchPoints > 0;
+
+    // ゲーム開始・リスタート
+    const startGame = () => {
+        isGameStarted = true;
+        isGameOver = false;
+        score = 0;
+        lives = 3;
+        enemies = [];
+        playerBullets = [];
+        enemyBullets = [];
+        boss = null;
+        waveIndex = 0;
+        gameTime = 0;
+        // プレイヤーの初期位置を再設定
+        if (canvas) {
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 80;
+        }
+    };
+
+    // ゲームループを`$effect`で実装
+    $effect(() => {
+        if (!isGameStarted || isGameOver) {
+            return;
+        }
+
+        let animationFrameId: number;
+
+        const loop = () => {
+            gameTime++;
+
+            // プレイヤーの更新
+            player.fireTimer++;
+            if (player.fireTimer >= player.fireRate) {
+                playerBullets.push(
+                    new Bullet(player.x, player.y, { x: 0, y: -1 }, "player"),
+                );
+                player.fireTimer = 0;
+            }
+
+            // 弾丸の更新
+            playerBullets = playerBullets.filter((b) => {
+                b.update();
+                return b.y > -b.size;
+            });
+            enemyBullets = enemyBullets.filter((b) => {
+                b.update();
+                return (
+                    b.y < canvas.height + b.size &&
+                    b.x > -b.size &&
+                    b.x < canvas.width + b.size
+                );
+            });
+
+            // 敵の更新
+            enemies.forEach((enemy) => {
+                enemy.y += enemy.speed;
+                enemy.fireTimer++;
+                if (
+                    enemy instanceof StraightEnemy &&
+                    enemy.fireTimer >= enemy.fireRate
+                ) {
+                    enemyBullets.push(
+                        new Bullet(
+                            enemy.x,
+                            enemy.y + enemy.height,
+                            { x: 0, y: 1 },
+                            "enemy",
+                            "#a0aec0",
+                        ),
+                    );
+                    enemy.fireTimer = 0;
+                }
+                if (
+                    enemy instanceof SpreadEnemy &&
+                    enemy.fireTimer >= enemy.fireRate
+                ) {
+                    const angles = [-30, -15, 0, 15, 30];
+                    angles.forEach((angle) => {
+                        const rad = (angle * Math.PI) / 180;
+                        const speedX = Math.sin(rad) * 3;
+                        const speedY = Math.cos(rad) * 3;
+                        enemyBullets.push(
+                            new Bullet(
+                                enemy.x,
+                                enemy.y + enemy.height,
+                                { x: speedX, y: speedY },
+                                "enemy",
+                                "#a0aec0",
+                            ),
+                        );
+                    });
+                    enemy.fireTimer = 0;
+                }
+            });
+            enemies = enemies.filter(
+                (enemy) => enemy.y < canvas.height + enemy.height,
+            );
+
+            // 敵の出現
+            if (waveIndex < enemyWaves.length) {
+                const wave = enemyWaves[waveIndex];
+                if (gameTime >= wave.time) {
+                    if (wave.type === "straight") {
+                        enemies.push(new StraightEnemy(wave.x, -50, 10, 10));
+                    } else if (wave.type === "spread") {
+                        enemies.push(new SpreadEnemy(wave.x, -50, 15, 20));
+                    }
+                    waveIndex++;
+                }
+            }
+
+            // ボス出現
+            if (
+                waveIndex >= enemyWaves.length &&
+                enemies.length === 0 &&
+                !boss
+            ) {
+                boss = new Boss(canvas.width / 2, 100, 500, 1000);
+            }
+
+            if (boss) {
+                boss.x += (boss.targetX - boss.x) * boss.speed;
+                if (Math.abs(boss.x - boss.targetX) < 5) {
+                    boss.targetX =
+                        Math.random() * (canvas.width - boss.width) +
+                        boss.width / 2;
+                }
+                boss.fireTimer++;
+                boss.patternTimer++;
+                const currentPattern = boss.patterns[boss.currentPatternIndex];
+                if (boss.patternTimer >= currentPattern.time) {
+                    boss.currentPatternIndex =
+                        (boss.currentPatternIndex + 1) % boss.patterns.length;
+                    boss.patternTimer = 0;
+                }
+
+                // ボスの発射
+                if (boss.fireTimer >= 30) {
+                    const bulletSpeed = currentPattern.speed;
+                    switch (currentPattern.type) {
+                        case "spread":
+                            for (let i = -2; i <= 2; i++) {
+                                const angle = i * 15;
+                                const rad = (angle * Math.PI) / 180;
+                                const speedX = Math.sin(rad) * bulletSpeed;
+                                const speedY = Math.cos(rad) * bulletSpeed;
+                                enemyBullets.push(
+                                    new Bullet(
+                                        boss.x,
+                                        boss.y + boss.height / 2,
+                                        { x: speedX, y: speedY },
+                                        "enemy",
+                                        "#ecc94b",
+                                        bulletSpeed,
+                                        8,
+                                    ),
+                                );
+                            }
+                            break;
+                        case "circular": {
+                            const numBullets = 12;
+                            for (let i = 0; i < numBullets; i++) {
+                                const angle = (i / numBullets) * Math.PI * 2;
+                                const speedX = Math.sin(angle) * bulletSpeed;
+                                const speedY = Math.cos(angle) * bulletSpeed;
+                                enemyBullets.push(
+                                    new Bullet(
+                                        boss.x,
+                                        boss.y + boss.height / 2,
+                                        { x: speedX, y: speedY },
+                                        "enemy",
+                                        "#ecc94b",
+                                        bulletSpeed,
+                                        6,
+                                    ),
+                                );
+                            }
+                            break;
+                        }
+                        case "spiral": {
+                            const numSpiralBullets = 8;
+                            const rotationSpeed = boss.fireTimer * 0.1;
+                            for (let i = 0; i < numSpiralBullets; i++) {
+                                const angle =
+                                    (i / numSpiralBullets) * Math.PI * 2 +
+                                    rotationSpeed;
+                                const speedX = Math.sin(angle) * bulletSpeed;
+                                const speedY = Math.cos(angle) * bulletSpeed;
+                                enemyBullets.push(
+                                    new Bullet(
+                                        boss.x,
+                                        boss.y + boss.height / 2,
+                                        { x: speedX, y: speedY },
+                                        "enemy",
+                                        "#ecc94b",
+                                        bulletSpeed,
+                                        6,
+                                    ),
+                                );
+                            }
+                            break;
+                        }
+                        case "random":
+                            if (Math.random() > 0.5) {
+                                enemyBullets.push(
+                                    new Bullet(
+                                        boss.x,
+                                        boss.y + boss.height / 2,
+                                        { x: Math.random() * 2 - 1, y: 1 },
+                                        "enemy",
+                                        "#ecc94b",
+                                        bulletSpeed,
+                                        6,
+                                    ),
+                                );
+                            }
+                            break;
+                    }
+                    boss.fireTimer = 0;
+                }
+            }
+
+            // 当たり判定
+            const checkCollisions = () => {
+                const newPlayerBullets = [...playerBullets];
+                const newEnemies = [...enemies];
+                const newEnemyBullets = [...enemyBullets];
+                let newScore = score;
+                let playerHit = false;
+
+                // プレイヤーの弾丸と敵の衝突
+                newPlayerBullets.forEach((bullet, bIndex) => {
+                    let hitEnemy = false;
+                    newEnemies.forEach((enemy, eIndex) => {
+                        const distance = Math.hypot(
+                            bullet.x - enemy.x,
+                            bullet.y - enemy.y,
+                        );
+                        if (distance < enemy.hitboxRadius + bullet.size) {
+                            hitEnemy = true;
+                            enemy.health -= 1;
+                            if (enemy.health <= 0) {
+                                newScore += enemy.scoreValue;
+                                newEnemies.splice(eIndex, 1);
+                            }
+                        }
+                    });
+
+                    // プレイヤーの弾丸とボスの衝突
+                    if (boss && !hitEnemy) {
+                        const distance = Math.hypot(
+                            bullet.x - boss.x,
+                            bullet.y - boss.y,
+                        );
+                        if (distance < boss.hitboxRadius + bullet.size) {
+                            hitEnemy = true;
+                            boss.health -= 1;
+                            if (boss.health <= 0) {
+                                newScore += boss.scoreValue;
+                                boss = null;
+                            }
+                        }
+                    }
+
+                    if (!hitEnemy) {
+                        newPlayerBullets.splice(bIndex, 1);
+                    }
+                });
+
+                // 敵とプレイヤーの衝突
+                newEnemies.forEach((enemy, eIndex) => {
+                    const distance = Math.hypot(
+                        enemy.x - player.x,
+                        enemy.y - player.y,
+                    );
+                    if (distance < player.hitboxRadius + enemy.hitboxRadius) {
+                        lives--;
+                        if (lives <= 0) {
+                            isGameOver = true;
+                        } else {
+                            player.x = canvas.width / 2;
+                            player.y = canvas.height - 80;
+                        }
+                        newEnemies.splice(eIndex, 1); // 敵を削除
+                    } else if (enemy.y > canvas.height) {
+                        newEnemies.splice(eIndex, 1);
+                    }
+                });
+
+                // 敵の弾丸とプレイヤーの衝突
+                newEnemyBullets.forEach((bullet, bIndex) => {
+                    const distance = Math.hypot(
+                        bullet.x - player.x,
+                        bullet.y - player.y,
+                    );
+                    if (distance < player.hitboxRadius + bullet.size) {
+                        newEnemyBullets.splice(bIndex, 1);
+                        lives--;
+                        if (lives <= 0) {
+                            isGameOver = true;
+                        } else {
+                            player.x = canvas.width / 2;
+                            player.y = canvas.height - 80;
+                        }
+                    }
+                });
+
+                playerBullets = newPlayerBullets;
+                enemies = newEnemies;
+                enemyBullets = newEnemyBullets;
+                score = newScore;
+            };
+
+            checkCollisions();
+
+            // 描画
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            player.draw(ctx);
+            for (const b of playerBullets) {
+                b.draw(ctx);
+            }
+            for (const e of enemies) {
+                e.draw(ctx);
+            }
+            for (const b of enemyBullets) {
+                b.draw(ctx);
+            }
+            if (boss) {
+                boss.draw(ctx);
+            }
+
+            animationFrameId = requestAnimationFrame(loop);
+        };
+
+        animationFrameId = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(animationFrameId);
+    });
+
+    // プレイヤーの移動
+    $effect(() => {
+        if (!isGameStarted || isGameOver) return;
+
+        // プレイヤーの移動
+        if (keys["ArrowLeft"] || keys["a"]) {
+            player.x -= player.speed;
+        }
+        if (keys["ArrowRight"] || keys["d"]) {
+            player.x += player.speed;
+        }
+        if (keys["ArrowUp"] || keys["w"]) {
+            player.y -= player.speed;
+        }
+        if (keys["ArrowDown"] || keys["s"]) {
+            player.y += player.speed;
+        }
+
+        // プレイヤーの位置を画面内に制限
+        if (player.x < player.hitboxRadius) player.x = player.hitboxRadius;
+        if (player.x > canvas?.width - player.hitboxRadius)
+            player.x = canvas.width - player.hitboxRadius;
+        if (player.y < player.hitboxRadius) player.y = player.hitboxRadius;
+        if (player.y > canvas?.height - player.hitboxRadius)
+            player.y = canvas.height - player.hitboxRadius;
+    });
+
+    // キーボードイベントハンドラ
+    const handleKeyDown = (e: KeyboardEvent) => {
+        keys[e.key.toLowerCase()] = true;
+        if (e.key === " " && player.fireTimer >= player.fireRate) {
+            playerBullets.push(
+                new Bullet(
+                    player.x,
+                    player.y,
+                    { x: 0, y: -1 }, // 上向きに発射
+                    "player",
+                ),
+            );
+            player.fireTimer = 0;
+        }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+        keys[e.key.toLowerCase()] = false;
+    };
+
+    // モバイルタッチ操作
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+    function handleTouchStart(e: TouchEvent) {
+        if (!isGameStarted || isGameOver) {
+            startGame();
+        } else {
+            lastTouchX = e.touches[0].clientX;
+            lastTouchY = e.touches[0].clientY;
+            player.x = lastTouchX;
+            player.y = lastTouchY;
+        }
+    }
+    function handleTouchMove(e: TouchEvent) {
+        if (!isGameStarted || isGameOver) return;
+        const currentTouchX = e.touches[0].clientX;
+        const currentTouchY = e.touches[0].clientY;
+        const deltaX = currentTouchX - lastTouchX;
+        const deltaY = currentTouchY - lastTouchY;
+        player.x += deltaX;
+        player.y += deltaY;
+        lastTouchX = currentTouchX;
+        lastTouchY = currentTouchY;
+    }
+    function handleTouchEnd() {
+        if (!isGameStarted || isGameOver) return;
+        if (player.fireTimer >= player.fireRate) {
+            playerBullets.push(
+                new Bullet(
+                    player.x,
+                    player.y,
+                    { x: 0, y: -1 }, // 上向きに発射
+                    "player",
+                ),
+            );
+            player.fireTimer = 0;
+        }
+    }
+
+    // キャンバスとプレイヤーの初期化
+    $effect(() => {
+        if (canvas) {
+            ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+            resizeCanvas();
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 80;
+        }
+
+        window.addEventListener("keydown", handleKeyDown);
+        window.addEventListener("keyup", handleKeyUp);
+        window.addEventListener("resize", resizeCanvas);
+
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+            window.removeEventListener("keyup", handleKeyUp);
+            window.removeEventListener("resize", resizeCanvas);
+        };
+    });
+
+    function resizeCanvas() {
+        const gameContainer = document.querySelector(
+            ".relative.max-w-lg",
+        ) as HTMLElement;
+        if (gameContainer) {
+            canvas.width = gameContainer.offsetWidth;
+            canvas.height = gameContainer.offsetHeight;
+        }
+    }
+
+    // ボスHPゲージの計算
+    const bossHealthPercentage = $derived(
+        boss ? (boss.health / boss.maxHealth) * 100 : 0,
+    );
+</script>
+
+<svelte:head>
+    <link
+        href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap"
+        rel="stylesheet"
+    />
+</svelte:head>
+
+<div
+    class="bg-gray-900 text-white font-['M_PLUS_Rounded_1c'] flex flex-col justify-center items-center h-screen overflow-hidden"
+    ontouchstart={handleTouchStart}
+    ontouchmove={handleTouchMove}
+    ontouchend={handleTouchEnd}
+>
+    <div
+        class="relative max-w-lg w-full h-full my-4 shadow-lg rounded-lg overflow-hidden"
+    >
+        <canvas
+            bind:this={canvas}
+            class="bg-black border-2 border-gray-600 w-full h-full touch-none"
+        ></canvas>
+
+        <div
+            class="absolute top-0 left-0 w-full flex justify-between p-4 box-border pointer-events-none z-10"
+        >
+            <div class="text-xl font-bold p-2 bg-gray-700 rounded-lg shadow-lg">
+                スコア: {score}
+            </div>
+            <div class="text-xl font-bold p-2 bg-gray-700 rounded-lg shadow-lg">
+                残機: {lives}
+            </div>
+        </div>
+
+        <div
+            class="absolute top-2 left-1/2 -translate-x-1/2 w-4/5 md:w-3/5 h-6 bg-gray-700 rounded-full shadow-lg overflow-hidden"
+            class:hidden={!boss}
+        >
+            <div
+                class="h-full bg-red-500 transition-all duration-300"
+                style:width={`${bossHealthPercentage}%`}
+            ></div>
+        </div>
+
+        <div
+            class="absolute inset-0 bg-black/70 flex flex-col justify-center items-center text-center z-20 p-4"
+            class:hidden={isGameStarted}
+        >
+            <h1 class="text-4xl sm:text-6xl font-extrabold text-blue-400 mb-6">
+                スマホで遊べるSTG
+            </h1>
+            <p class="text-lg sm:text-2xl font-semibold mb-8 text-gray-300">
+                画面をタッチして左右に移動。<br />
+                PCでは十字キーで操作。<br />
+                弾は自動で発射されます。
+            </p>
+            <button
+                onclick={startGame}
+                class="px-8 py-4 bg-blue-500 hover:bg-blue-600 rounded-full text-xl sm:text-3xl font-bold transition-transform transform hover:scale-105 shadow-lg"
+            >
+                ゲームスタート
+            </button>
+        </div>
+
+        <div
+            class="absolute inset-0 bg-black/70 flex flex-col justify-center items-center text-center z-20 p-4"
+            class:hidden={!isGameOver}
+        >
+            <h2 class="text-6xl font-extrabold text-red-500 mb-4 animate-pulse">
+                ゲームオーバー
+            </h2>
+            <p class="text-3xl font-semibold text-gray-300 mb-8">
+                最終スコア: {score}
+            </p>
+            <button
+                onclick={startGame}
+                class="px-8 py-4 bg-green-500 hover:bg-green-600 rounded-full text-xl sm:text-3xl font-bold transition-transform transform hover:scale-105 shadow-lg"
+            >
+                リスタート
+            </button>
+        </div>
+    </div>
+
+    <div class="md:hidden absolute bottom-5 w-full flex justify-center gap-5">
+        <button
+            ontouchstart={() => {
+                keys["a"] = true;
+            }}
+            ontouchend={() => {
+                keys["a"] = false;
+            }}
+            class="bg-gray-600 text-white rounded-full w-20 h-20 text-3xl flex justify-center items-center cursor-pointer select-none shadow-lg active:scale-95 transition-transform"
+            >◀</button
+        >
+        <button
+            ontouchstart={() => {
+                keys["d"] = true;
+            }}
+            ontouchend={() => {
+                keys["d"] = false;
+            }}
+            class="bg-gray-600 text-white rounded-full w-20 h-20 text-3xl flex justify-center items-center cursor-pointer select-none shadow-lg active:scale-95 transition-transform"
+            >▶</button
+        >
+    </div>
+</div>

@@ -23,13 +23,6 @@
 			"quoteStyle": "double"
 		}
 	},
-	"assist": {
-		"actions": {
-			"source": {
-				"organizeImports": "on"
-			}
-		}
-	},
 	"overrides": [
 		{
 			"includes": ["**/*.svelte"],

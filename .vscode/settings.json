@@ -9,12 +9,12 @@
 		"editor.defaultFormatter": null
 	},
 	"editor.codeActionsOnSave": {
-		"source.organizeImports.biome": "explicit",
 		"source.fixAll.biome": "explicit"
 	},
 	"svelte.enable-ts-plugin": true,
 	"files.associations": {
 		"*.css": "tailwindcss",
-		"*.scss": "tailwindcss"
+		"*.scss": "tailwindcss",
+		"*.svelte": "svelte"
 	}
 }
