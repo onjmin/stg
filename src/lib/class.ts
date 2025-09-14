@@ -63,6 +63,7 @@ export class Bullet {
 	color: string;
 	speed: number;
 	size: number;
+	damage: number;
 
 	constructor({
 		x,
@@ -72,6 +73,7 @@ export class Bullet {
 		color = "#f6e05e",
 		speed = 7,
 		size = 5,
+		damage = 1,
 	}: {
 		x: number;
 		y: number;
@@ -80,6 +82,7 @@ export class Bullet {
 		color?: string;
 		speed?: number;
 		size?: number;
+		damage?: number;
 	}) {
 		this.x = x;
 		this.y = y;
@@ -88,6 +91,7 @@ export class Bullet {
 		this.color = color;
 		this.speed = speed;
 		this.size = size;
+		this.damage = damage;
 	}
 
 	update(deltaTime: number) {

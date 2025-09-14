@@ -117,6 +117,7 @@
                         y: player.y,
                         direction: { x: 0, y: -1 },
                         owner: "player",
+                        damage: 5, // ★ プレイヤーの弾丸ダメージを設定
                     }),
                 );
                 player.fireTimer = 0;
@@ -340,11 +341,11 @@
                             bullet.y - enemy.y,
                         );
                         if (distance < enemy.hitboxRadius + bullet.size) {
-                            // 衝突した弾丸と敵をSetに追加
                             bulletsToRemove.add(bullet);
-                            enemiesToRemove.add(enemy);
-                            enemy.health -= 1;
+                            // ダメージ計算を適用
+                            enemy.health -= bullet.damage;
                             if (enemy.health <= 0) {
+                                enemiesToRemove.add(enemy);
                                 newScore += enemy.scoreValue;
                             }
                         }
@@ -358,10 +359,13 @@
                         );
                         if (distance < boss.hitboxRadius + bullet.size) {
                             bulletsToRemove.add(bullet);
-                            boss.health -= 1;
+                            // ダメージ計算を適用
+                            boss.health -= bullet.damage;
                             if (boss.health <= 0) {
                                 newScore += boss.scoreValue;
                             }
+                            bossHealthPercentage =
+                                (boss.health / boss.maxHealth) * 100;
                         }
                     }
                 });
@@ -530,9 +534,7 @@
         }
     }
 
-    const bossHealthPercentage = $derived(
-        boss ? (boss.health / boss.maxHealth) * 100 : 0,
-    );
+    let bossHealthPercentage = $state(100);
 </script>
 
 <svelte:head>
