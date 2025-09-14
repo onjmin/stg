@@ -1,4 +1,10 @@
 <script lang="ts">
+    import { quintOut } from "svelte/easing";
+    import { Tween } from "svelte/motion";
+    import bossImageAnger from "$lib/assets/standing/boss0000.png";
+    import bossImageNomal from "$lib/assets/standing/boss0001.png";
+    import bossImageSad from "$lib/assets/standing/boss0002.png";
+    import playerImage from "$lib/assets/standing/player.png";
     import {
         Boss,
         Bullet,
@@ -8,26 +14,23 @@
         StraightEnemy,
     } from "$lib/class";
 
+    // 既存のステート変数はそのまま
     let canvas: HTMLCanvasElement;
     let ctx: CanvasRenderingContext2D;
-
     let score = $state(0);
     let lives = $state(3);
     let isGameOver = $state(false);
     let isGameStarted = $state(false);
     let keys = $state<{ [key: string]: boolean }>({});
     let isPaused = $state(false);
-
     let isInvincible = $state(false);
     let invincibilityTimer = $state(0);
-    const INVINCIBILITY_DURATION = 4; // 秒単位に変更
-
+    const INVINCIBILITY_DURATION = 4;
     let player = $state<Player | null>(null);
     let enemies = $state<Enemy[]>([]);
     let playerBullets = $state<Bullet[]>([]);
     let enemyBullets = $state<Bullet[]>([]);
     let boss = $state<Boss | null>(null);
-
     let waveIndex = $state(0);
     let gameTime = $state(0);
     const enemyWaves = [
@@ -47,13 +50,48 @@
         { time: 14, type: "spread", x: 150 },
         { time: 15, type: "straight", x: 250 },
     ];
-
     const isMobile =
         "ontouchstart" in globalThis || navigator.maxTouchPoints > 0;
+    let lastTimestamp: number = 0;
+    let animationFrameId: number;
+    let bossHealthPercentage = $state(100);
 
+    // --- 新しい会話パートのステート変数とデータ ---
+    let isDialogueActive = $state(false); // 会話パートがアクティブか
+    let dialogueIndex = $state(0); // 現在のセリフのインデックス
+
+    const dialogueScript = [
+        {
+            speaker: "boss",
+            text: "よくぞ来たな、弱き者よ。ここがお前の墓場だ。",
+            image: bossImageAnger,
+        },
+        { speaker: "player", text: "お前がこの世界の歪みの根源か！" },
+        {
+            speaker: "boss",
+            text: "歪み？フン、我こそがこの世界の秩序。お前のような異分子は消え去るべきだ。",
+            image: bossImageNomal,
+        },
+        {
+            speaker: "player",
+            text: "そんな理不尽な秩序、俺がぶち壊してやる！",
+        },
+        {
+            speaker: "boss",
+            text: "口だけは達者なようだな…ならば力で示してみせろ！",
+            image: bossImageAnger,
+        },
+    ];
+
+    // キャラクター画像のフェードイン・アウト用tweenedストア
+    const playerOpacity = new Tween(0, { duration: 300, easing: quintOut });
+    const bossOpacity = new Tween(0, { duration: 300, easing: quintOut });
+
+    // --- 既存の関数を修正・追加 ---
     const startGame = () => {
         isGameStarted = true;
         isGameOver = false;
+        isDialogueActive = false; // 会話パートを非アクティブにする
         score = 0;
         lives = 3;
         enemies = [];
@@ -71,12 +109,41 @@
             player.x = canvas.width / 2;
             player.y = canvas.height - 80;
         }
-        lastTimestamp = performance.now(); // ゲーム開始時にタイムスタンプを初期化
+        lastTimestamp = performance.now();
     };
 
-    let animationFrameId: number;
-    let lastTimestamp: number = 0;
+    const startDialogue = () => {
+        isPaused = true; // ゲームを一時停止
+        isDialogueActive = true;
+        dialogueIndex = 0;
+        updateDialogueDisplay(dialogueScript[0].speaker);
+    };
 
+    // 次のセリフに進む関数（PCとスマホの両方に対応）
+    function handleNextDialogue() {
+        if (!isDialogueActive) return;
+
+        dialogueIndex++;
+        if (dialogueIndex < dialogueScript.length) {
+            updateDialogueDisplay(dialogueScript[dialogueIndex].speaker);
+        } else {
+            isDialogueActive = false;
+            isPaused = false; // ゲームを再開
+            lastTimestamp = performance.now(); // タイムスタンプをリセット
+        }
+    }
+
+    function updateDialogueDisplay(speaker: string) {
+        if (speaker === "player") {
+            playerOpacity.target = 1;
+            bossOpacity.target = 0.3;
+        } else {
+            playerOpacity.target = 0.3;
+            bossOpacity.target = 1;
+        }
+    }
+
+    // --- 既存のゲームループを修正 ---
     $effect(() => {
         if (!isGameStarted || isGameOver) {
             return;
@@ -85,7 +152,7 @@
         const loop = (timestamp: number) => {
             if (!player) return;
 
-            const deltaTime = (timestamp - lastTimestamp) / 1000; // 秒単位の経過時間を計算
+            const deltaTime = (timestamp - lastTimestamp) / 1000;
             lastTimestamp = timestamp;
             if (isPaused) {
                 animationFrameId = requestAnimationFrame(loop);
@@ -216,8 +283,11 @@
             if (
                 waveIndex >= enemyWaves.length &&
                 enemies.length === 0 &&
-                !boss
+                !boss &&
+                !isDialogueActive
             ) {
+                // ボス戦開始前に会話パートを挟む
+                startDialogue();
                 boss = new Boss({
                     x: canvas.width / 2,
                     y: 100,
@@ -456,17 +526,23 @@
         return () => cancelAnimationFrame(animationFrameId);
     });
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-        keys[e.key.toLowerCase()] = true;
+    // キーボード入力で会話を進める
+    const handleDialogueKeyDown = (e: KeyboardEvent) => {
+        if (isDialogueActive) {
+            e.preventDefault();
+            handleNextDialogue();
+        } else {
+            // 既存のゲーム操作ロジック
+            keys[e.key.toLowerCase()] = true;
+        }
     };
-    const handleKeyUp = (e: KeyboardEvent) => {
-        keys[e.key.toLowerCase()] = false;
+    const handleDialogueKeyUp = (e: KeyboardEvent) => {
+        if (!isDialogueActive) {
+            keys[e.key.toLowerCase()] = false;
+        }
     };
 
-    // 以前のタッチ操作ロジックを削除
-    // let isMovingLeft = $state(false);
-    // let isMovingRight = $state(false);
-
+    // ... (既存のタッチ操作ロジックは省略) ...
     let lastTouchX = 0;
     let isMoving = $state(false);
 
@@ -475,13 +551,18 @@
             startGame();
             return;
         }
-        e.preventDefault();
-        isMoving = true;
-        lastTouchX = e.touches[0].clientX;
+        if (isDialogueActive) {
+            e.preventDefault();
+            handleNextDialogue();
+        } else {
+            e.preventDefault();
+            isMoving = true;
+            lastTouchX = e.touches[0].clientX;
+        }
     }
 
     function handleTouchMove(e: TouchEvent) {
-        if (!isGameStarted || isGameOver || !player) return;
+        if (!isGameStarted || isGameOver || !player || isDialogueActive) return;
         e.preventDefault();
         const currentTouchX = e.touches[0].clientX;
         const deltaX = currentTouchX - lastTouchX;
@@ -498,7 +579,7 @@
     };
     const handleFocus = () => {
         isPaused = false;
-        lastTimestamp = performance.now(); // タイムスタンプをリセット
+        lastTimestamp = performance.now();
     };
 
     $effect(() => {
@@ -510,15 +591,15 @@
             player.y = canvas.height - 80;
         }
 
-        window.addEventListener("keydown", handleKeyDown);
-        window.addEventListener("keyup", handleKeyUp);
+        window.addEventListener("keydown", handleDialogueKeyDown);
+        window.addEventListener("keyup", handleDialogueKeyUp);
         window.addEventListener("resize", resizeCanvas);
         window.addEventListener("blur", handleBlur);
         window.addEventListener("focus", handleFocus);
 
         return () => {
-            window.removeEventListener("keydown", handleKeyDown);
-            window.removeEventListener("keyup", handleKeyUp);
+            window.removeEventListener("keydown", handleDialogueKeyDown);
+            window.removeEventListener("keyup", handleDialogueKeyUp);
             window.removeEventListener("resize", resizeCanvas);
             window.removeEventListener("blur", handleBlur);
             window.removeEventListener("focus", handleFocus);
@@ -534,8 +615,6 @@
             canvas.height = gameContainer.offsetHeight;
         }
     }
-
-    let bossHealthPercentage = $state(100);
 </script>
 
 <svelte:head>
@@ -617,5 +696,46 @@
                 リスタート
             </button>
         </div>
+
+        {#if isDialogueActive}
+            <div
+                tabindex="0"
+                role="button"
+                onkeydown={() => {}}
+                class="absolute inset-0 z-30 flex flex-col p-4 pointer-events-auto"
+                onclick={handleNextDialogue}
+            >
+                <div class="flex-grow flex justify-between items-end p-4 mb-2">
+                    <img
+                        src={playerImage}
+                        alt="プレイヤー"
+                        class="h-2/3 max-h-80 object-contain transition-opacity duration-300"
+                        style:opacity={playerOpacity.current}
+                    />
+
+                    <img
+                        src={dialogueScript[dialogueIndex].speaker === "boss"
+                            ? dialogueScript[dialogueIndex].image
+                            : bossImageNomal}
+                        alt="ボス"
+                        class="h-2/3 max-h-80 object-contain transition-opacity duration-300"
+                        style:opacity={bossOpacity.current}
+                    />
+                </div>
+
+                <div
+                    class="w-full bg-gray-800 bg-opacity-90 rounded-xl p-4 shadow-2xl border-2 border-blue-400 text-lg sm:text-xl font-semibold"
+                >
+                    <p class="text-blue-200 mb-1">
+                        {dialogueScript[dialogueIndex].speaker === "player"
+                            ? "プレイヤー"
+                            : "ボス"}
+                    </p>
+                    <p class="text-white">
+                        {dialogueScript[dialogueIndex].text}
+                    </p>
+                </div>
+            </div>
+        {/if}
     </div>
 </div>

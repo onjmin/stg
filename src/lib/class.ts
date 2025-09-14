@@ -142,7 +142,7 @@ export class Enemy {
 		health,
 		scoreValue,
 		imageSrc, // 新しい引数として画像URLを受け取る
-		bulletColor = "#e53e3e",
+		bulletColor = "#6973fa",
 	}: {
 		x: number;
 		y: number;
