@@ -12,9 +12,8 @@
         Player,
         SpreadEnemy,
         StraightEnemy,
-    } from "$lib/class";
+    } from "$lib/class"; // 既存のステート変数はそのまま
 
-    // 既存のステート変数はそのまま
     let canvas: HTMLCanvasElement;
     let ctx: CanvasRenderingContext2D;
     let score = $state(0);
@@ -54,44 +53,80 @@
         "ontouchstart" in globalThis || navigator.maxTouchPoints > 0;
     let lastTimestamp: number = 0;
     let animationFrameId: number;
-    let bossHealthPercentage = $state(100);
+    let bossHealthPercentage = $state(100); // --- 新しいステート変数と会話データ ---
 
-    // --- 新しい会話パートのステート変数とデータ ---
     let isDialogueActive = $state(false); // 会話パートがアクティブか
     let dialogueIndex = $state(0); // 現在のセリフのインデックス
+    let isGameClear = $state(false); // ゲームクリア状態を追加
 
-    const dialogueScript = [
+    // ボス戦前の会話
+
+    const preBattleDialogue = [
         {
             speaker: "boss",
-            text: "よくぞ来たな、弱き者よ。ここがお前の墓場だ。",
+            text: "よく来たな、テメェ。ここがテメェの墓場だ。",
             image: bossImageAnger,
         },
-        { speaker: "player", text: "お前がこの世界の歪みの根源か！" },
+        { speaker: "player", text: "キミがこの世界の歪みの根源か！" },
         {
             speaker: "boss",
-            text: "歪み？フン、我こそがこの世界の秩序。お前のような異分子は消え去るべきだ。",
+            text: "歪み？フッ...オレこそがこの世界の支配者だ！テメェみたいな異分子は消えてもらう！",
             image: bossImageNomal,
         },
         {
             speaker: "player",
-            text: "そんな理不尽な秩序、俺がぶち壊してやる！",
+            text: "そんな理不尽な秩序、ボクがぶち壊してやる！",
         },
         {
             speaker: "boss",
-            text: "口だけは達者なようだな…ならば力で示してみせろ！",
+            text: "口だけは達者なようだな...なら力で示してみせろ！",
             image: bossImageAnger,
         },
     ];
 
-    // キャラクター画像のフェードイン・アウト用tweenedストア
-    const playerOpacity = new Tween(0, { duration: 300, easing: quintOut });
-    const bossOpacity = new Tween(0, { duration: 300, easing: quintOut });
+    // ボス撃破後の会話を定義
 
-    // --- 既存の関数を修正・追加 ---
+    const postBattleDialogue = [
+        {
+            speaker: "boss",
+            text: "ぐ、ぐああああああ…この、オレが……",
+            image: bossImageSad,
+        },
+        {
+            speaker: "boss",
+            text: "まさか、こんな未熟な存在に…敗れるとは…。",
+            image: bossImageSad,
+        },
+        {
+            speaker: "player",
+            text: "未熟かもしれないけど、ボクには守りたいものがある！その思いが、キミより強かっただけだ。",
+        },
+        {
+            speaker: "boss",
+            text: "そうか…そうだな…。",
+            image: bossImageSad,
+        },
+        {
+            speaker: "boss",
+            text: "…これで、この世界の歪みは…消えるのか…。",
+            image: bossImageSad,
+        },
+        {
+            speaker: "player",
+            text: "ああ、ボクが新しい未来を作るんだ。",
+        },
+    ];
+
+    let currentDialogueScript = $state(preBattleDialogue); // キャラクター画像のフェードイン・アウト用tweenedストア
+
+    const playerOpacity = new Tween(0, { duration: 300, easing: quintOut });
+    const bossOpacity = new Tween(0, { duration: 300, easing: quintOut }); // --- 既存の関数を修正・追加 ---
+
     const startGame = () => {
         isGameStarted = true;
         isGameOver = false;
-        isDialogueActive = false; // 会話パートを非アクティブにする
+        isGameClear = false; // ゲームクリア状態をリセット
+        isDialogueActive = false;
         score = 0;
         lives = 3;
         enemies = [];
@@ -102,6 +137,7 @@
         gameTime = 0;
         isInvincible = false;
         invincibilityTimer = 0;
+        currentDialogueScript = preBattleDialogue; // 会話を初期化
         if (!player) {
             player = new Player();
         }
@@ -116,20 +152,28 @@
         isPaused = true; // ゲームを一時停止
         isDialogueActive = true;
         dialogueIndex = 0;
-        updateDialogueDisplay(dialogueScript[0].speaker);
-    };
+        updateDialogueDisplay(currentDialogueScript[0].speaker);
+    }; // 次のセリフに進む関数（PCとスマホの両方に対応）
 
-    // 次のセリフに進む関数（PCとスマホの両方に対応）
     function handleNextDialogue() {
         if (!isDialogueActive) return;
 
         dialogueIndex++;
-        if (dialogueIndex < dialogueScript.length) {
-            updateDialogueDisplay(dialogueScript[dialogueIndex].speaker);
+        if (dialogueIndex < currentDialogueScript.length) {
+            updateDialogueDisplay(currentDialogueScript[dialogueIndex].speaker);
         } else {
-            isDialogueActive = false;
-            isPaused = false; // ゲームを再開
-            lastTimestamp = performance.now(); // タイムスタンプをリセット
+            // 会話終了時の処理を分岐
+            if (currentDialogueScript === preBattleDialogue) {
+                // ボス戦前の会話終了
+                isDialogueActive = false;
+                isPaused = false;
+                lastTimestamp = performance.now();
+            } else if (currentDialogueScript === postBattleDialogue) {
+                // ボス撃破後の会話終了 -> ゲームクリア
+                isDialogueActive = false;
+                isGameClear = true;
+                isPaused = true; // ゲームクリア中はゲームループを停止
+            }
         }
     }
 
@@ -141,11 +185,11 @@
             playerOpacity.target = 0.3;
             bossOpacity.target = 1;
         }
-    }
+    } // --- 既存のゲームループを修正 ---
 
-    // --- 既存のゲームループを修正 ---
     $effect(() => {
-        if (!isGameStarted || isGameOver) {
+        if (!isGameStarted || isGameOver || isGameClear) {
+            // ゲームクリア時もループを停止
             return;
         }
 
@@ -396,15 +440,13 @@
             }
 
             const checkCollisions = () => {
-                if (!player) return;
+                if (!player) return; // 衝突した弾丸と敵を追跡するためのSetを作成
 
-                // 衝突した弾丸と敵を追跡するためのSetを作成
                 const bulletsToRemove = new Set();
                 const enemiesToRemove = new Set();
 
-                let newScore = score;
+                let newScore = score; // プレイヤーの弾丸と敵の衝突判定
 
-                // プレイヤーの弾丸と敵の衝突判定
                 playerBullets.forEach((bullet) => {
                     enemies.forEach((enemy) => {
                         const distance = Math.hypot(
@@ -412,36 +454,36 @@
                             bullet.y - enemy.y,
                         );
                         if (distance < enemy.hitboxRadius + bullet.size) {
-                            bulletsToRemove.add(bullet);
-                            // ダメージ計算を適用
+                            bulletsToRemove.add(bullet); // ダメージ計算を適用
                             enemy.health -= bullet.damage;
                             if (enemy.health <= 0) {
                                 enemiesToRemove.add(enemy);
                                 newScore += enemy.scoreValue;
                             }
                         }
-                    });
+                    }); // ボスとの衝突判定
 
-                    // ボスとの衝突判定
                     if (boss) {
                         const distance = Math.hypot(
                             bullet.x - boss.x,
                             bullet.y - boss.y,
                         );
                         if (distance < boss.hitboxRadius + bullet.size) {
-                            bulletsToRemove.add(bullet);
-                            // ダメージ計算を適用
+                            bulletsToRemove.add(bullet); // ダメージ計算を適用
                             boss.health -= bullet.damage;
                             if (boss.health <= 0) {
-                                newScore += boss.scoreValue;
+                                newScore += boss.scoreValue; // ★ ボス撃破後の処理
+                                boss = null;
+                                currentDialogueScript = postBattleDialogue; // 撃破後の会話に切り替え
+                                startDialogue(); // 会話パートを開始
+                                return; // このフレームの描画をスキップ
                             }
                             bossHealthPercentage =
                                 (boss.health / boss.maxHealth) * 100;
                         }
                     }
-                });
+                }); // 敵の弾丸とプレイヤーの衝突判定
 
-                // 敵の弾丸とプレイヤーの衝突判定
                 if (!isInvincible) {
                     enemyBullets.forEach((bullet) => {
                         if (!player) return;
@@ -458,9 +500,8 @@
                                 isInvincible = true;
                             }
                         }
-                    });
+                    }); // 敵とプレイヤーの衝突判定
 
-                    // 敵とプレイヤーの衝突判定
                     enemies.forEach((enemy) => {
                         if (!player) return;
                         const distance = Math.hypot(
@@ -480,9 +521,8 @@
                             enemiesToRemove.add(enemy);
                         }
                     });
-                }
+                } // `Set`を使って、衝突したオブジェクトを元の配列から削除
 
-                // `Set`を使って、衝突したオブジェクトを元の配列から削除
                 playerBullets = playerBullets.filter(
                     (bullet) => !bulletsToRemove.has(bullet),
                 );
@@ -524,11 +564,10 @@
 
         animationFrameId = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(animationFrameId);
-    });
+    }); // キーボード入力で会話を進める
 
-    // キーボード入力で会話を進める
     const handleDialogueKeyDown = (e: KeyboardEvent) => {
-        if (isDialogueActive) {
+        if (isDialogueActive || isGameClear) {
             e.preventDefault();
             handleNextDialogue();
         } else {
@@ -537,12 +576,11 @@
         }
     };
     const handleDialogueKeyUp = (e: KeyboardEvent) => {
-        if (!isDialogueActive) {
+        if (!isDialogueActive && !isGameClear) {
             keys[e.key.toLowerCase()] = false;
         }
-    };
+    }; // ... (既存のタッチ操作ロジックは省略) ...
 
-    // ... (既存のタッチ操作ロジックは省略) ...
     let lastTouchX = 0;
     let isMoving = $state(false);
 
@@ -551,7 +589,7 @@
             startGame();
             return;
         }
-        if (isDialogueActive) {
+        if (isDialogueActive || isGameClear) {
             e.preventDefault();
             handleNextDialogue();
         } else {
@@ -679,23 +717,50 @@
             </button>
         </div>
 
-        <div
-            class="absolute inset-0 bg-black/70 flex flex-col justify-center items-center text-center z-20 p-4"
-            class:hidden={!isGameOver}
-        >
-            <h2 class="text-6xl font-extrabold text-red-500 mb-4 animate-pulse">
-                ゲームオーバー
-            </h2>
-            <p class="text-3xl font-semibold text-gray-300 mb-8">
-                最終スコア: {score}
-            </p>
-            <button
-                onclick={startGame}
-                class="px-8 py-4 bg-green-500 hover:bg-green-600 rounded-full text-xl sm:text-3xl font-bold transition-transform transform hover:scale-105 shadow-lg"
+        {#if isGameOver}
+            <div
+                class="absolute inset-0 bg-black/70 flex flex-col justify-center items-center text-center z-20 p-4"
             >
-                リスタート
-            </button>
-        </div>
+                <h2
+                    class="text-6xl font-extrabold text-red-500 mb-4 animate-pulse"
+                >
+                    ゲームオーバー
+                </h2>
+                <p class="text-3xl font-semibold text-gray-300 mb-8">
+                    最終スコア: {score}
+                </p>
+                <button
+                    onclick={startGame}
+                    class="px-8 py-4 bg-green-500 hover:bg-green-600 rounded-full text-xl sm:text-3xl font-bold transition-transform transform hover:scale-105 shadow-lg"
+                >
+                    リスタート
+                </button>
+            </div>
+        {/if}
+
+        {#if isGameClear}
+            <div
+                class="absolute inset-0 bg-black/70 flex flex-col justify-center items-center text-center z-20 p-4"
+            >
+                <h2
+                    class="text-6xl font-extrabold text-yellow-400 mb-4 animate-pulse"
+                >
+                    ゲームクリア！
+                </h2>
+                <p class="text-3xl font-semibold text-gray-300 mb-8">
+                    最終スコア: {score}
+                </p>
+                <p class="text-xl font-semibold text-gray-400 mb-8">
+                    世界に平和が戻った。
+                </p>
+                <button
+                    onclick={startGame}
+                    class="px-8 py-4 bg-green-500 hover:bg-green-600 rounded-full text-xl sm:text-3xl font-bold transition-transform transform hover:scale-105 shadow-lg"
+                >
+                    もう一度プレイ
+                </button>
+            </div>
+        {/if}
 
         {#if isDialogueActive}
             <div
@@ -714,8 +779,9 @@
                     />
 
                     <img
-                        src={dialogueScript[dialogueIndex].speaker === "boss"
-                            ? dialogueScript[dialogueIndex].image
+                        src={currentDialogueScript[dialogueIndex].speaker ===
+                        "boss"
+                            ? currentDialogueScript[dialogueIndex].image
                             : bossImageNomal}
                         alt={boss?.name}
                         class="h-2/3 max-h-80 object-contain transition-opacity duration-300"
@@ -727,12 +793,13 @@
                     class="w-full bg-gray-800 bg-opacity-90 rounded-xl p-4 shadow-2xl border-2 border-blue-400 text-lg sm:text-xl font-semibold"
                 >
                     <p class="text-blue-200 mb-1">
-                        {dialogueScript[dialogueIndex].speaker === "player"
+                        {currentDialogueScript[dialogueIndex].speaker ===
+                        "player"
                             ? player?.name
                             : boss?.name}
                     </p>
                     <p class="text-white">
-                        {dialogueScript[dialogueIndex].text}
+                        {currentDialogueScript[dialogueIndex].text}
                     </p>
                 </div>
             </div>
