@@ -4,6 +4,7 @@ import zako from "$lib/assets/dot/zako.png";
 import zakoHaneImage from "$lib/assets/dot/zako_hane.png";
 
 export class Player {
+	name = "メルト・ガルル";
 	x = 0;
 	y = 0;
 	speed = 5;
@@ -217,6 +218,8 @@ export class SpreadEnemy extends Enemy {
 }
 
 export class Boss extends Enemy {
+	name = "ベノム";
+
 	// x,y座標の目標地点。画面上の絶対座標
 	targetX: number;
 	targetY: number;

@@ -708,7 +708,7 @@
                 <div class="flex-grow flex justify-between items-end p-4 mb-2">
                     <img
                         src={playerImage}
-                        alt="プレイヤー"
+                        alt={player?.name}
                         class="h-2/3 max-h-80 object-contain transition-opacity duration-300"
                         style:opacity={playerOpacity.current}
                     />
@@ -717,7 +717,7 @@
                         src={dialogueScript[dialogueIndex].speaker === "boss"
                             ? dialogueScript[dialogueIndex].image
                             : bossImageNomal}
-                        alt="ボス"
+                        alt={boss?.name}
                         class="h-2/3 max-h-80 object-contain transition-opacity duration-300"
                         style:opacity={bossOpacity.current}
                     />
@@ -728,8 +728,8 @@
                 >
                     <p class="text-blue-200 mb-1">
                         {dialogueScript[dialogueIndex].speaker === "player"
-                            ? "プレイヤー"
-                            : "ボス"}
+                            ? player?.name
+                            : boss?.name}
                     </p>
                     <p class="text-white">
                         {dialogueScript[dialogueIndex].text}
