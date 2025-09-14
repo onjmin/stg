@@ -113,12 +113,14 @@
         },
     ];
 
+    let dialogueState = $state<"preBattle" | "postBattle" | "none">("none");
     let currentDialogueScript = $state(preBattleDialogue);
 
     const playerOpacity = new Tween(0, { duration: 300, easing: quintOut });
     const bossOpacity = new Tween(0, { duration: 300, easing: quintOut });
 
     const startGame = () => {
+        dialogueState = "preBattle";
         isGameStarted = true;
         isGameOver = false;
         isGameClear = false;
@@ -159,13 +161,15 @@
             updateDialogueDisplay(currentDialogueScript[dialogueIndex].speaker);
         } else {
             isDialogueActive = false;
-            if (currentDialogueScript === preBattleDialogue) {
+            // ✅ 修正箇所：オブジェクトの比較を、追加したIDで行う
+            if (dialogueState === "preBattle") {
                 isPaused = false;
                 lastTimestamp = performance.now();
-            } else if (currentDialogueScript === postBattleDialogue) {
+            } else if (dialogueState === "postBattle") {
                 isGameClear = true;
                 isPaused = true;
             }
+            dialogueState = "none";
         }
     }
 
@@ -459,6 +463,7 @@
                             boss = null;
                             currentDialogueScript = postBattleDialogue;
                             startDialogue();
+                            dialogueState = "postBattle";
                             return;
                         }
                         bossHealthPercentage =
@@ -539,11 +544,15 @@
     };
 
     $effect(() => {
-        if (!isGameStarted || isGameOver || isGameClear) {
-            return;
+        if (
+            isGameStarted &&
+            !isGameOver &&
+            !isGameClear &&
+            !isPaused &&
+            !isDialogueActive
+        ) {
+            animationFrameId = requestAnimationFrame(loop);
         }
-
-        animationFrameId = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(animationFrameId);
     });
 
