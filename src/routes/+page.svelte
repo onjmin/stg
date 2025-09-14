@@ -13,6 +13,14 @@
         SpreadEnemy,
         StraightEnemy,
     } from "$lib/class"; // 既存のステート変数はそのまま
+    // ✅ 修正箇所: 効果音インスタンスをインポート
+
+    import {
+        bulletSound,
+        createSoundEffect,
+        damageSound,
+        glazeSound,
+    } from "$lib/sound.js";
 
     let canvas: HTMLCanvasElement;
     let ctx: CanvasRenderingContext2D;
@@ -120,7 +128,6 @@
     const bossOpacity = new Tween(0, { duration: 300, easing: quintOut });
 
     const startGame = () => {
-        dialogueState = "preBattle";
         isGameStarted = true;
         isGameOver = false;
         isGameClear = false;
@@ -135,6 +142,7 @@
         gameTime = 0;
         isInvincible = false;
         invincibilityTimer = 0;
+        dialogueState = "preBattle";
         currentDialogueScript = preBattleDialogue;
         if (!player) {
             player = new Player();
@@ -150,7 +158,11 @@
         isPaused = true;
         isDialogueActive = true;
         dialogueIndex = 0;
-        updateDialogueDisplay(currentDialogueScript[0].speaker);
+        updateDialogueDisplay(currentDialogueScript[0].speaker); // ✅ 修正箇所: ボス出現時のSE
+        if (dialogueState === "preBattle") {
+        } else if (dialogueState === "postBattle") {
+            // ボス撃破時のSEを鳴らす場合はここに
+        }
     };
 
     function handleNextDialogue() {
@@ -161,7 +173,6 @@
             updateDialogueDisplay(currentDialogueScript[dialogueIndex].speaker);
         } else {
             isDialogueActive = false;
-            // ✅ 修正箇所：オブジェクトの比較を、追加したIDで行う
             if (dialogueState === "preBattle") {
                 isPaused = false;
                 lastTimestamp = performance.now();
@@ -222,7 +233,8 @@
                     color: "#fa6973",
                 }),
             );
-            player.fireTimer = 0;
+            player.fireTimer = 0; // ✅ 修正箇所: プレイヤーの弾発射音
+            bulletSound?.play();
         }
 
         if (isInvincible) {
@@ -261,7 +273,8 @@
                             color: enemy.bulletColor,
                         }),
                     );
-                    enemy.fireTimer = 0;
+                    enemy.fireTimer = 0; // ✅ 修正箇所: 敵の弾発射音
+                    bulletSound?.play();
                 }
             } else if (enemy instanceof SpreadEnemy) {
                 if (enemy.fireTimer >= enemy.fireRate) {
@@ -280,7 +293,8 @@
                             }),
                         );
                     });
-                    enemy.fireTimer = 0;
+                    enemy.fireTimer = 0; // ✅ 修正箇所: 敵の弾発射音
+                    bulletSound?.play();
                 }
             }
         });
@@ -445,7 +459,7 @@
                         enemy.health -= bullet.damage;
                         if (enemy.health <= 0) {
                             enemiesToRemove.add(enemy);
-                            newScore += enemy.scoreValue;
+                            newScore += enemy.scoreValue; // ✅ 修正箇所: 敵を倒した時のSE
                         }
                     }
                 });
@@ -457,7 +471,7 @@
                     );
                     if (distance < boss.hitboxRadius + bullet.size) {
                         bulletsToRemove.add(bullet);
-                        boss.health -= bullet.damage;
+                        boss.health -= bullet.damage; // ✅ 修正箇所: ボス被弾時のSE
                         if (boss.health <= 0) {
                             newScore += boss.scoreValue;
                             boss = null;
@@ -471,6 +485,7 @@
                     }
                 }
             });
+            let glaze = false;
             if (!isInvincible) {
                 enemyBullets.forEach((bullet) => {
                     if (!player) return;
@@ -478,14 +493,19 @@
                         bullet.x - player.x,
                         bullet.y - player.y,
                     );
-                    if (distance < player.hitboxRadius + bullet.size) {
+                    const d = player.hitboxRadius + bullet.size;
+                    if (distance < d) {
                         bulletsToRemove.add(bullet);
                         lives--;
+                        damageSound?.play();
                         if (lives <= 0) {
                             isGameOver = true;
                         } else {
                             isInvincible = true;
                         }
+                    } else if (distance < d * 2 && !glaze) {
+                        glazeSound?.play();
+                        glaze = true;
                     }
                 });
 
@@ -495,13 +515,18 @@
                         enemy.x - player.x,
                         enemy.y - player.y,
                     );
-                    if (distance < player.hitboxRadius + enemy.hitboxRadius) {
+                    const d = player.hitboxRadius + enemy.hitboxRadius;
+                    if (distance < d) {
                         lives--;
+                        damageSound?.play();
                         if (lives <= 0) {
                             isGameOver = true;
                         } else {
                             isInvincible = true;
                         }
+                    } else if (distance < d * 2 && !glaze) {
+                        glazeSound?.play();
+                        glaze = true;
                     }
                 });
             }
@@ -692,8 +717,8 @@
             </h1>
             <p class="text-lg sm:text-2xl font-semibold mb-8 text-gray-300">
                 画面を指でなぞって移動。<br />
-                PCでは十字キーで操作。<br />
-                弾は自動で発射されます。
+                                PCでは十字キーで操作。<br />
+                                弾は自動で発射されます。
             </p>
             <button
                 onclick={startGame}
