@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { tick } from "svelte";
     import {
         Boss,
         Bullet,
@@ -23,7 +22,7 @@
     let invincibilityTimer = $state(0);
     const INVINCIBILITY_DURATION = 4; // 秒単位に変更
 
-    let player = $state(new Player());
+    let player = $state<Player | null>(null);
     let enemies = $state<Enemy[]>([]);
     let playerBullets = $state<Bullet[]>([]);
     let enemyBullets = $state<Bullet[]>([]);
@@ -65,6 +64,9 @@
         gameTime = 0;
         isInvincible = false;
         invincibilityTimer = 0;
+        if (!player) {
+            player = new Player();
+        }
         if (canvas) {
             player.x = canvas.width / 2;
             player.y = canvas.height - 80;
@@ -81,6 +83,8 @@
         }
 
         const loop = (timestamp: number) => {
+            if (!player) return;
+
             const deltaTime = (timestamp - lastTimestamp) / 1000; // 秒単位の経過時間を計算
             lastTimestamp = timestamp;
             if (isPaused) {
@@ -320,6 +324,8 @@
             }
 
             const checkCollisions = () => {
+                if (!player) return;
+
                 // 衝突した弾丸と敵を追跡するためのSetを作成
                 const bulletsToRemove = new Set();
                 const enemiesToRemove = new Set();
@@ -363,6 +369,7 @@
                 // 敵の弾丸とプレイヤーの衝突判定
                 if (!isInvincible) {
                     enemyBullets.forEach((bullet) => {
+                        if (!player) return;
                         const distance = Math.hypot(
                             bullet.x - player.x,
                             bullet.y - player.y,
@@ -380,6 +387,7 @@
 
                     // 敵とプレイヤーの衝突判定
                     enemies.forEach((enemy) => {
+                        if (!player) return;
                         const distance = Math.hypot(
                             enemy.x - player.x,
                             enemy.y - player.y,
@@ -421,7 +429,7 @@
                 (isInvincible &&
                     Math.floor((invincibilityTimer * 60) / 10) % 2 === 0)
             ) {
-                player.draw(ctx);
+                player.draw(ctx, deltaTime);
             }
             for (const b of playerBullets) {
                 b.draw(ctx);
@@ -468,7 +476,7 @@
     }
 
     function handleTouchMove(e: TouchEvent) {
-        if (!isGameStarted || isGameOver) return;
+        if (!isGameStarted || isGameOver || !player) return;
         e.preventDefault();
         const currentTouchX = e.touches[0].clientX;
         const deltaX = currentTouchX - lastTouchX;
@@ -489,6 +497,7 @@
     };
 
     $effect(() => {
+        if (!player) return;
         if (canvas) {
             ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
             resizeCanvas();

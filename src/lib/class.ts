@@ -1,4 +1,8 @@
-// ゲームオブジェクトのクラス
+import bossImage from "$lib/assets/dot/boss.png";
+import playerImage from "$lib/assets/dot/player.png";
+import zako from "$lib/assets/dot/zako.png";
+import zakoHaneImage from "$lib/assets/dot/zako_hane.png";
+
 export class Player {
 	x = 0;
 	y = 0;
@@ -7,12 +11,47 @@ export class Player {
 	fireTimer = 0;
 	hitboxRadius = 5;
 
-	draw(ctx: CanvasRenderingContext2D) {
-		ctx.beginPath();
-		ctx.arc(this.x, this.y, this.hitboxRadius * 2.5, 0, Math.PI * 2);
-		ctx.fillStyle = "#4299e1";
-		ctx.fill();
-		ctx.closePath();
+	// 画像とアニメーション関連のプロパティを追加
+	playerImage: HTMLImageElement;
+	spriteWidth = 48; // 各スプライトの幅
+	spriteHeight = 48; // 各スプライトの高さ
+	animationFrame = 0; // 現在のアニメーションフレーム
+	animationTimer = 0;
+	animationSpeed = 0.1; // アニメーションの切り替え速度（秒）
+
+	constructor() {
+		this.playerImage = new Image();
+		this.playerImage.src = playerImage;
+	}
+
+	draw(ctx: CanvasRenderingContext2D, deltaTime: number) {
+		// アニメーションタイマーを更新
+		this.animationTimer += deltaTime;
+		if (this.animationTimer >= this.animationSpeed) {
+			this.animationFrame = (this.animationFrame + 1) % 3; // 0, 1, 2を繰り返す
+			this.animationTimer = 0;
+		}
+
+		// 画像を描画
+		if (this.playerImage.complete) {
+			ctx.drawImage(
+				this.playerImage,
+				0, // ソース画像のx座標
+				this.animationFrame * this.spriteHeight, // ソース画像のy座標 (フレームごとに切り替え)
+				this.spriteWidth, // ソース画像の幅
+				this.spriteHeight, // ソース画像の高さ
+				this.x - this.spriteWidth / 2, // 描画先のx座標 (中央揃え)
+				this.y - this.spriteHeight / 2, // 描画先のy座標 (中央揃え)
+				this.spriteWidth, // 描画先の幅
+				this.spriteHeight, // 描画先の高さ
+			);
+		}
+
+		// ヒットボックスを描画（デバッグ用）
+		// ctx.beginPath();
+		// ctx.arc(this.x, this.y, this.hitboxRadius, 0, Math.PI * 2);
+		// ctx.strokeStyle = "red";
+		// ctx.stroke();
 	}
 }
 
@@ -70,24 +109,27 @@ export class Enemy {
 	y: number;
 	health: number;
 	scoreValue: number;
-	width = 30;
-	height = 30;
+	width = 48;
+	height = 48;
 	color: string;
 	speed = 4;
 	hitboxRadius = 10;
 	fireTimer = 0;
+	enemyImage: HTMLImageElement;
 
 	constructor({
 		x,
 		y,
 		health,
 		scoreValue,
+		imageSrc, // 新しい引数として画像URLを受け取る
 		color = "#e53e3e",
 	}: {
 		x: number;
 		y: number;
 		health: number;
 		scoreValue: number;
+		imageSrc: string; // imageSrcは必須
 		color?: string;
 	}) {
 		this.x = x;
@@ -95,23 +137,39 @@ export class Enemy {
 		this.health = health;
 		this.scoreValue = scoreValue;
 		this.color = color;
+
+		// 画像を読み込む
+		this.enemyImage = new Image();
+		this.enemyImage.src = imageSrc;
 	}
 
-	update(deltaTime: number) {
+	update(deltaTime: number, _canvasWidth?: number, _canvasHeight?: number) {
 		this.y += this.speed * 60 * deltaTime;
 	}
 
 	draw(ctx: CanvasRenderingContext2D) {
-		ctx.beginPath();
-		ctx.rect(
-			this.x - this.width / 2,
-			this.y - this.height / 2,
-			this.width,
-			this.height,
-		);
-		ctx.fillStyle = this.color;
-		ctx.fill();
-		ctx.closePath();
+		// 画像がロード完了しているか確認してから描画
+		if (this.enemyImage.complete) {
+			ctx.drawImage(
+				this.enemyImage,
+				this.x - this.width / 2,
+				this.y - this.height / 2,
+				this.width,
+				this.height,
+			);
+		} else {
+			// 画像がロードされていない場合は、一時的に元の四角形を描画する
+			ctx.beginPath();
+			ctx.rect(
+				this.x - this.width / 2,
+				this.y - this.height / 2,
+				this.width,
+				this.height,
+			);
+			ctx.fillStyle = this.color;
+			ctx.fill();
+			ctx.closePath();
+		}
 	}
 }
 
@@ -131,7 +189,7 @@ export class StraightEnemy extends Enemy {
 		scoreValue: number;
 		color?: string;
 	}) {
-		super({ x, y, health, scoreValue, color });
+		super({ x, y, health, scoreValue, color, imageSrc: zako });
 	}
 }
 
@@ -151,7 +209,7 @@ export class SpreadEnemy extends Enemy {
 		scoreValue: number;
 		color?: string;
 	}) {
-		super({ x, y, health, scoreValue, color });
+		super({ x, y, health, scoreValue, color, imageSrc: zakoHaneImage });
 	}
 }
 
@@ -174,8 +232,8 @@ export class Boss extends Enemy {
 	];
 	currentPatternIndex = 0;
 	patternTimer = 0;
-	width = 100;
-	height = 100;
+	width = 48;
+	height = 48;
 	hitboxRadius = 25;
 	speed = 0.5; // 移動の追従速度（ターゲットにどれだけ速く向かうか）
 	maxHealth: number;
@@ -191,7 +249,7 @@ export class Boss extends Enemy {
 		health: number;
 		scoreValue: number;
 	}) {
-		super({ x, y, health, scoreValue, color: "#f56565" });
+		super({ x, y, health, scoreValue, color: "#f56565", imageSrc: bossImage });
 		this.targetX = x;
 		this.targetY = y;
 		this.maxHealth = health;
@@ -218,27 +276,5 @@ export class Boss extends Enemy {
 		// タイマーとパターン更新はそのまま
 		this.fireTimer += deltaTime;
 		this.patternTimer += deltaTime;
-	}
-
-	draw(ctx: CanvasRenderingContext2D) {
-		ctx.beginPath();
-		ctx.rect(
-			this.x - this.width / 2,
-			this.y - this.height / 2,
-			this.width,
-			this.height,
-		);
-		ctx.fillStyle = this.color;
-		ctx.fill();
-		ctx.closePath();
-		const healthBarWidth = this.width;
-		const healthBarHeight = 10;
-		const healthBarX = this.x - healthBarWidth / 2;
-		const healthBarY = this.y - this.height / 2 - healthBarHeight - 5;
-		ctx.fillStyle = "#333";
-		ctx.fillRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
-		const currentHealthWidth = (this.health / this.maxHealth) * healthBarWidth;
-		ctx.fillStyle = "#27ae60";
-		ctx.fillRect(healthBarX, healthBarY, currentHealthWidth, healthBarHeight);
 	}
 }
