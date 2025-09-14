@@ -70,7 +70,7 @@ export class Bullet {
 		y,
 		direction,
 		owner,
-		color = "#f6e05e",
+		color = "#6973fa",
 		speed = 7,
 		size = 5,
 		damage = 1,

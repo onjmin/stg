@@ -118,7 +118,7 @@
                         direction: { x: 0, y: -1 },
                         owner: "player",
                         damage: 5, // ★ プレイヤーの弾丸ダメージを設定
-                        color: "#f6e05e",
+                        color: "#fa6973",
                     }),
                 );
                 player.fireTimer = 0;
