@@ -158,32 +158,17 @@
     function handleNextDialogue() {
         if (!isDialogueActive) return;
 
-        // 会話が最後のセリフに達した場合
-        if (dialogueIndex >= currentDialogueScript.length - 1) {
-            isDialogueActive = false;
-            isPaused = false; // ここでゲームクリア状態に移行するロジックを追加
-            if (currentDialogueScript === postBattleDialogue) {
-                isGameClear = true;
-            }
-            lastTimestamp = performance.now();
-            return;
-        }
-
         dialogueIndex++;
         if (dialogueIndex < currentDialogueScript.length) {
             updateDialogueDisplay(currentDialogueScript[dialogueIndex].speaker);
         } else {
-            // 会話終了時の処理を分岐
+            isDialogueActive = false;
             if (currentDialogueScript === preBattleDialogue) {
-                // ボス戦前の会話終了
-                isDialogueActive = false;
                 isPaused = false;
                 lastTimestamp = performance.now();
             } else if (currentDialogueScript === postBattleDialogue) {
-                // ボス撃破後の会話終了 -> ゲームクリア
-                isDialogueActive = false;
                 isGameClear = true;
-                isPaused = true; // ゲームクリア中はゲームループを停止
+                isPaused = true;
             }
         }
     }
