@@ -14,7 +14,6 @@
         StraightEnemy,
     } from "$lib/class"; // 既存のステート変数はそのまま
     // ✅ 修正箇所: 効果音インスタンスをインポート
-
     import {
         bulletSound,
         createSoundEffect,
@@ -66,6 +65,7 @@
     let isDialogueActive = $state(false);
     let dialogueIndex = $state(0);
     let isGameClear = $state(false);
+    let isKeyDown = $state(false); // ✅ 追加: キーが押されているかどうかのフラグ
 
     const preBattleDialogue = [
         {
@@ -583,14 +583,20 @@
 
     const handleDialogueKeyDown = (e: KeyboardEvent) => {
         if (isDialogueActive || isGameClear) {
-            e.preventDefault();
-            handleNextDialogue();
+            e.preventDefault(); // キーが新しく押されたときだけ処理を実行
+            if (!isKeyDown) {
+                handleNextDialogue();
+                isKeyDown = true;
+            }
         } else {
             keys[e.key.toLowerCase()] = true;
         }
     };
     const handleDialogueKeyUp = (e: KeyboardEvent) => {
-        if (!isDialogueActive && !isGameClear) {
+        if (isDialogueActive || isGameClear) {
+            // ✅ 修正: ダイアログ中はキーアップでフラグをリセット
+            isKeyDown = false;
+        } else {
             keys[e.key.toLowerCase()] = false;
         }
     };
