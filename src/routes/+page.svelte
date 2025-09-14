@@ -53,13 +53,11 @@
         "ontouchstart" in globalThis || navigator.maxTouchPoints > 0;
     let lastTimestamp: number = 0;
     let animationFrameId: number;
-    let bossHealthPercentage = $state(100); // --- 新しいステート変数と会話データ ---
+    let bossHealthPercentage = $state(100);
 
-    let isDialogueActive = $state(false); // 会話パートがアクティブか
-    let dialogueIndex = $state(0); // 現在のセリフのインデックス
-    let isGameClear = $state(false); // ゲームクリア状態を追加
-
-    // ボス戦前の会話
+    let isDialogueActive = $state(false);
+    let dialogueIndex = $state(0);
+    let isGameClear = $state(false);
 
     const preBattleDialogue = [
         {
@@ -83,8 +81,6 @@
             image: bossImageAnger,
         },
     ];
-
-    // ボス撃破後の会話を定義
 
     const postBattleDialogue = [
         {
@@ -117,15 +113,15 @@
         },
     ];
 
-    let currentDialogueScript = $state(preBattleDialogue); // キャラクター画像のフェードイン・アウト用tweenedストア
+    let currentDialogueScript = $state(preBattleDialogue);
 
     const playerOpacity = new Tween(0, { duration: 300, easing: quintOut });
-    const bossOpacity = new Tween(0, { duration: 300, easing: quintOut }); // --- 既存の関数を修正・追加 ---
+    const bossOpacity = new Tween(0, { duration: 300, easing: quintOut });
 
     const startGame = () => {
         isGameStarted = true;
         isGameOver = false;
-        isGameClear = false; // ゲームクリア状態をリセット
+        isGameClear = false;
         isDialogueActive = false;
         score = 0;
         lives = 3;
@@ -137,7 +133,7 @@
         gameTime = 0;
         isInvincible = false;
         invincibilityTimer = 0;
-        currentDialogueScript = preBattleDialogue; // 会話を初期化
+        currentDialogueScript = preBattleDialogue;
         if (!player) {
             player = new Player();
         }
@@ -149,29 +145,24 @@
     };
 
     const startDialogue = () => {
-        isPaused = true; // ゲームを一時停止
+        isPaused = true;
         isDialogueActive = true;
         dialogueIndex = 0;
         updateDialogueDisplay(currentDialogueScript[0].speaker);
-    }; // 次のセリフに進む関数（PCとスマホの両方に対応）
+    };
 
     function handleNextDialogue() {
         if (!isDialogueActive) return;
 
-        // 現在の会話が最後のセリフかどうかをチェック
         if (dialogueIndex < currentDialogueScript.length - 1) {
-            // まだ次のセリフがある場合、インデックスを進める
             dialogueIndex++;
             updateDialogueDisplay(currentDialogueScript[dialogueIndex].speaker);
         } else {
-            // 最後のセリフに到達した場合、会話を終了する
             isDialogueActive = false;
             if (currentDialogueScript === preBattleDialogue) {
-                // ボス戦前の会話が終了した場合
                 isPaused = false;
                 lastTimestamp = performance.now();
             } else if (currentDialogueScript === postBattleDialogue) {
-                // ボス撃破後の会話が終了した場合
                 isGameClear = true;
                 isPaused = true;
             }
@@ -186,388 +177,381 @@
             playerOpacity.target = 0.3;
             bossOpacity.target = 1;
         }
-    } // --- 既存のゲームループを修正 ---
+    }
 
-    $effect(() => {
-        if (!isGameStarted || isGameOver || isGameClear) {
-            // ゲームクリア時もループを停止
+    const loop = (timestamp: number) => {
+        if (!player) return;
+
+        const deltaTime = (timestamp - lastTimestamp) / 1000;
+        lastTimestamp = timestamp;
+        if (isPaused) {
+            animationFrameId = requestAnimationFrame(loop);
             return;
         }
 
-        const loop = (timestamp: number) => {
-            if (!player) return;
+        gameTime += deltaTime;
 
-            const deltaTime = (timestamp - lastTimestamp) / 1000;
-            lastTimestamp = timestamp;
-            if (isPaused) {
-                animationFrameId = requestAnimationFrame(loop);
-                return;
-            }
+        const speed = keys.shift ? player.speed / 2 : player.speed;
+        if (keys.arrowleft || keys.a) player.x -= speed * 60 * deltaTime;
+        if (keys.arrowright || keys.d) player.x += speed * 60 * deltaTime;
+        if (keys.arrowup || keys.w) player.y -= speed * 60 * deltaTime;
+        if (keys.arrowdown || keys.s) player.y += speed * 60 * deltaTime;
 
-            gameTime += deltaTime;
+        player.x = Math.max(
+            player.hitboxRadius,
+            Math.min(player.x, canvas.width - player.hitboxRadius),
+        );
+        player.y = Math.max(
+            player.hitboxRadius,
+            Math.min(player.y, canvas.height - player.hitboxRadius),
+        );
 
-            const speed = keys.shift ? player.speed / 2 : player.speed;
-            if (keys.arrowleft || keys.a) player.x -= speed * 60 * deltaTime;
-            if (keys.arrowright || keys.d) player.x += speed * 60 * deltaTime;
-            if (keys.arrowup || keys.w) player.y -= speed * 60 * deltaTime;
-            if (keys.arrowdown || keys.s) player.y += speed * 60 * deltaTime;
-
-            player.x = Math.max(
-                player.hitboxRadius,
-                Math.min(player.x, canvas.width - player.hitboxRadius),
+        player.fireTimer += deltaTime;
+        if (player.fireTimer >= player.fireRate) {
+            playerBullets.push(
+                new Bullet({
+                    x: player.x,
+                    y: player.y,
+                    direction: { x: 0, y: -1 },
+                    owner: "player",
+                    damage: 5,
+                    color: "#fa6973",
+                }),
             );
-            player.y = Math.max(
-                player.hitboxRadius,
-                Math.min(player.y, canvas.height - player.hitboxRadius),
-            );
+            player.fireTimer = 0;
+        }
 
-            player.fireTimer += deltaTime;
-            if (player.fireTimer >= player.fireRate) {
-                playerBullets.push(
-                    new Bullet({
-                        x: player.x,
-                        y: player.y,
-                        direction: { x: 0, y: -1 },
-                        owner: "player",
-                        damage: 5, // ★ プレイヤーの弾丸ダメージを設定
-                        color: "#fa6973",
-                    }),
-                );
-                player.fireTimer = 0;
+        if (isInvincible) {
+            invincibilityTimer += deltaTime;
+            if (invincibilityTimer >= INVINCIBILITY_DURATION) {
+                isInvincible = false;
+                invincibilityTimer = 0;
             }
+        }
 
-            if (isInvincible) {
-                invincibilityTimer += deltaTime;
-                if (invincibilityTimer >= INVINCIBILITY_DURATION) {
-                    isInvincible = false;
-                    invincibilityTimer = 0;
+        playerBullets = playerBullets.filter((b) => {
+            b.update(deltaTime);
+            return b.y > -b.size;
+        });
+        enemyBullets = enemyBullets.filter((b) => {
+            b.update(deltaTime);
+            return (
+                b.y < canvas.height + b.size &&
+                b.x > -b.size &&
+                b.x < canvas.width + b.size
+            );
+        });
+
+        enemies.forEach((enemy) => {
+            enemy.y += enemy.speed * 60 * deltaTime;
+            enemy.fireTimer += deltaTime;
+
+            if (enemy instanceof StraightEnemy) {
+                if (enemy.fireTimer >= enemy.fireRate) {
+                    enemyBullets.push(
+                        new Bullet({
+                            x: enemy.x,
+                            y: enemy.y + enemy.height,
+                            direction: { x: 0, y: 1 },
+                            owner: "enemy",
+                            color: enemy.bulletColor,
+                        }),
+                    );
+                    enemy.fireTimer = 0;
                 }
-            }
-
-            playerBullets = playerBullets.filter((b) => {
-                b.update(deltaTime);
-                return b.y > -b.size;
-            });
-            enemyBullets = enemyBullets.filter((b) => {
-                b.update(deltaTime);
-                return (
-                    b.y < canvas.height + b.size &&
-                    b.x > -b.size &&
-                    b.x < canvas.width + b.size
-                );
-            });
-
-            enemies.forEach((enemy) => {
-                enemy.y += enemy.speed * 60 * deltaTime;
-                enemy.fireTimer += deltaTime;
-
-                if (enemy instanceof StraightEnemy) {
-                    if (enemy.fireTimer >= enemy.fireRate) {
+            } else if (enemy instanceof SpreadEnemy) {
+                if (enemy.fireTimer >= enemy.fireRate) {
+                    const angles = [-30, -15, 0, 15, 30];
+                    angles.forEach((angle) => {
+                        const rad = (angle * Math.PI) / 180;
+                        const speedX = Math.sin(rad);
+                        const speedY = Math.cos(rad);
                         enemyBullets.push(
                             new Bullet({
                                 x: enemy.x,
                                 y: enemy.y + enemy.height,
-                                direction: { x: 0, y: 1 },
+                                direction: { x: speedX, y: speedY },
                                 owner: "enemy",
                                 color: enemy.bulletColor,
                             }),
                         );
-                        enemy.fireTimer = 0;
-                    }
-                } else if (enemy instanceof SpreadEnemy) {
-                    if (enemy.fireTimer >= enemy.fireRate) {
-                        const angles = [-30, -15, 0, 15, 30];
-                        angles.forEach((angle) => {
+                    });
+                    enemy.fireTimer = 0;
+                }
+            }
+        });
+        enemies = enemies.filter(
+            (enemy) => enemy.y < canvas.height + enemy.height,
+        );
+
+        if (waveIndex < enemyWaves.length) {
+            const wave = enemyWaves[waveIndex];
+            if (gameTime >= wave.time) {
+                if (wave.type === "straight") {
+                    enemies.push(
+                        new StraightEnemy({
+                            x: wave.x,
+                            y: -50,
+                            health: 5,
+                            scoreValue: 10,
+                        }),
+                    );
+                } else if (wave.type === "spread") {
+                    enemies.push(
+                        new SpreadEnemy({
+                            x: wave.x,
+                            y: -50,
+                            health: 10,
+                            scoreValue: 20,
+                        }),
+                    );
+                }
+                waveIndex++;
+            }
+        }
+
+        if (
+            waveIndex >= enemyWaves.length &&
+            enemies.length === 0 &&
+            !boss &&
+            !isDialogueActive
+        ) {
+            startDialogue();
+            boss = new Boss({
+                x: canvas.width / 2,
+                y: 100,
+                health: 500,
+                scoreValue: 1000,
+            });
+        }
+
+        if (boss) {
+            boss.update(deltaTime, canvas.width, canvas.height);
+
+            const currentPattern = boss.patterns[boss.currentPatternIndex];
+            if (boss.patternTimer >= currentPattern.time) {
+                boss.currentPatternIndex =
+                    (boss.currentPatternIndex + 1) % boss.patterns.length;
+                boss.patternTimer = 0;
+            }
+
+            if (boss.fireTimer >= 0.5) {
+                const bulletSpeed = currentPattern.speed;
+                switch (currentPattern.type) {
+                    case "spread":
+                        for (let i = -2; i <= 2; i++) {
+                            const angle = i * 15;
                             const rad = (angle * Math.PI) / 180;
                             const speedX = Math.sin(rad);
                             const speedY = Math.cos(rad);
                             enemyBullets.push(
                                 new Bullet({
-                                    x: enemy.x,
-                                    y: enemy.y + enemy.height,
+                                    x: boss.x,
+                                    y: boss.y + boss.height / 2,
                                     direction: { x: speedX, y: speedY },
                                     owner: "enemy",
-                                    color: enemy.bulletColor,
+                                    speed: bulletSpeed,
+                                    size: 6,
+                                    color: boss.bulletColor,
                                 }),
                             );
-                        });
-                        enemy.fireTimer = 0;
+                        }
+                        break;
+                    case "circular": {
+                        const numBullets = 12;
+                        for (let i = 0; i < numBullets; i++) {
+                            const angle = (i / numBullets) * Math.PI * 2;
+                            const speedX = Math.sin(angle) * bulletSpeed;
+                            const speedY = Math.cos(angle) * bulletSpeed;
+                            enemyBullets.push(
+                                new Bullet({
+                                    x: boss.x,
+                                    y: boss.y + boss.height / 2,
+                                    direction: { x: speedX, y: speedY },
+                                    owner: "enemy",
+                                    speed: bulletSpeed,
+                                    size: 6,
+                                    color: boss.bulletColor,
+                                }),
+                            );
+                        }
+                        break;
+                    }
+                    case "spiral": {
+                        const numSpiralBullets = 8;
+                        const rotationSpeed = boss.fireTimer;
+                        for (let i = 0; i < numSpiralBullets; i++) {
+                            const angle =
+                                (i / numSpiralBullets) * Math.PI * 2 +
+                                rotationSpeed;
+                            const speedX = Math.sin(angle) * bulletSpeed;
+                            const speedY = Math.cos(angle) * bulletSpeed;
+                            enemyBullets.push(
+                                new Bullet({
+                                    x: boss.x,
+                                    y: boss.y + boss.height / 2,
+                                    direction: { x: speedX, y: speedY },
+                                    owner: "enemy",
+                                    speed: bulletSpeed,
+                                    size: 6,
+                                    color: boss.bulletColor,
+                                }),
+                            );
+                        }
+                        break;
+                    }
+                    case "random":
+                        if (Math.random() > 0.5) {
+                            enemyBullets.push(
+                                new Bullet({
+                                    x: boss.x,
+                                    y: boss.y + boss.height / 2,
+                                    direction: {
+                                        x: Math.random() * 2 - 1,
+                                        y: 1,
+                                    },
+                                    owner: "enemy",
+                                    speed: bulletSpeed,
+                                    size: 6,
+                                    color: boss.bulletColor,
+                                }),
+                            );
+                        }
+                        break;
+                }
+                boss.fireTimer = 0;
+            }
+        }
+
+        const checkCollisions = () => {
+            if (!player) return;
+
+            const bulletsToRemove = new Set();
+            const enemiesToRemove = new Set();
+            let newScore = score;
+
+            playerBullets.forEach((bullet) => {
+                enemies.forEach((enemy) => {
+                    const distance = Math.hypot(
+                        bullet.x - enemy.x,
+                        bullet.y - enemy.y,
+                    );
+                    if (distance < enemy.hitboxRadius + bullet.size) {
+                        bulletsToRemove.add(bullet);
+                        enemy.health -= bullet.damage;
+                        if (enemy.health <= 0) {
+                            enemiesToRemove.add(enemy);
+                            newScore += enemy.scoreValue;
+                        }
+                    }
+                });
+
+                if (boss) {
+                    const distance = Math.hypot(
+                        bullet.x - boss.x,
+                        bullet.y - boss.y,
+                    );
+                    if (distance < boss.hitboxRadius + bullet.size) {
+                        bulletsToRemove.add(bullet);
+                        boss.health -= bullet.damage;
+                        if (boss.health <= 0) {
+                            newScore += boss.scoreValue;
+                            boss = null;
+                            currentDialogueScript = postBattleDialogue;
+                            startDialogue();
+                            return;
+                        }
+                        bossHealthPercentage =
+                            (boss.health / boss.maxHealth) * 100;
                     }
                 }
             });
-            enemies = enemies.filter(
-                (enemy) => enemy.y < canvas.height + enemy.height,
+            if (!isInvincible) {
+                enemyBullets.forEach((bullet) => {
+                    if (!player) return;
+                    const distance = Math.hypot(
+                        bullet.x - player.x,
+                        bullet.y - player.y,
+                    );
+                    if (distance < player.hitboxRadius + bullet.size) {
+                        bulletsToRemove.add(bullet);
+                        lives--;
+                        if (lives <= 0) {
+                            isGameOver = true;
+                        } else {
+                            isInvincible = true;
+                        }
+                    }
+                });
+
+                enemies.forEach((enemy) => {
+                    if (!player) return;
+                    const distance = Math.hypot(
+                        enemy.x - player.x,
+                        enemy.y - player.y,
+                    );
+                    if (distance < player.hitboxRadius + enemy.hitboxRadius) {
+                        lives--;
+                        if (lives <= 0) {
+                            isGameOver = true;
+                        } else {
+                            isInvincible = true;
+                        }
+                    }
+                });
+            }
+            playerBullets = playerBullets.filter(
+                (bullet) => !bulletsToRemove.has(bullet),
             );
-
-            if (waveIndex < enemyWaves.length) {
-                const wave = enemyWaves[waveIndex];
-                if (gameTime >= wave.time) {
-                    if (wave.type === "straight") {
-                        enemies.push(
-                            new StraightEnemy({
-                                x: wave.x,
-                                y: -50,
-                                health: 5,
-                                scoreValue: 10,
-                            }),
-                        );
-                    } else if (wave.type === "spread") {
-                        enemies.push(
-                            new SpreadEnemy({
-                                x: wave.x,
-                                y: -50,
-                                health: 10,
-                                scoreValue: 20,
-                            }),
-                        );
-                    }
-                    waveIndex++;
-                }
-            }
-
-            if (
-                waveIndex >= enemyWaves.length &&
-                enemies.length === 0 &&
-                !boss &&
-                !isDialogueActive
-            ) {
-                currentDialogueScript = preBattleDialogue;
-                startDialogue();
-                boss = new Boss({
-                    x: canvas.width / 2,
-                    y: 100,
-                    health: 500,
-                    scoreValue: 1000,
-                });
-            }
-
-            if (boss) {
-                boss.update(deltaTime, canvas.width, canvas.height);
-
-                const currentPattern = boss.patterns[boss.currentPatternIndex];
-                if (boss.patternTimer >= currentPattern.time) {
-                    boss.currentPatternIndex =
-                        (boss.currentPatternIndex + 1) % boss.patterns.length;
-                    boss.patternTimer = 0;
-                }
-
-                if (boss.fireTimer >= 0.5) {
-                    const bulletSpeed = currentPattern.speed;
-                    switch (currentPattern.type) {
-                        case "spread":
-                            for (let i = -2; i <= 2; i++) {
-                                const angle = i * 15;
-                                const rad = (angle * Math.PI) / 180;
-                                const speedX = Math.sin(rad);
-                                const speedY = Math.cos(rad);
-                                enemyBullets.push(
-                                    new Bullet({
-                                        x: boss.x,
-                                        y: boss.y + boss.height / 2,
-                                        direction: { x: speedX, y: speedY },
-                                        owner: "enemy",
-                                        speed: bulletSpeed,
-                                        size: 8,
-                                        color: boss.bulletColor,
-                                    }),
-                                );
-                            }
-                            break;
-                        case "circular": {
-                            const numBullets = 12;
-                            for (let i = 0; i < numBullets; i++) {
-                                const angle = (i / numBullets) * Math.PI * 2;
-                                const speedX = Math.sin(angle) * bulletSpeed;
-                                const speedY = Math.cos(angle) * bulletSpeed;
-                                enemyBullets.push(
-                                    new Bullet({
-                                        x: boss.x,
-                                        y: boss.y + boss.height / 2,
-                                        direction: { x: speedX, y: speedY },
-                                        owner: "enemy",
-                                        speed: bulletSpeed,
-                                        size: 6,
-                                        color: boss.bulletColor,
-                                    }),
-                                );
-                            }
-                            break;
-                        }
-                        case "spiral": {
-                            const numSpiralBullets = 8;
-                            const rotationSpeed = boss.fireTimer;
-                            for (let i = 0; i < numSpiralBullets; i++) {
-                                const angle =
-                                    (i / numSpiralBullets) * Math.PI * 2 +
-                                    rotationSpeed;
-                                const speedX = Math.sin(angle) * bulletSpeed;
-                                const speedY = Math.cos(angle) * bulletSpeed;
-                                enemyBullets.push(
-                                    new Bullet({
-                                        x: boss.x,
-                                        y: boss.y + boss.height / 2,
-                                        direction: { x: speedX, y: speedY },
-                                        owner: "enemy",
-                                        speed: bulletSpeed,
-                                        size: 6,
-                                        color: boss.bulletColor,
-                                    }),
-                                );
-                            }
-                            break;
-                        }
-                        case "random":
-                            if (Math.random() > 0.5) {
-                                enemyBullets.push(
-                                    new Bullet({
-                                        x: boss.x,
-                                        y: boss.y + boss.height / 2,
-                                        direction: {
-                                            x: Math.random() * 2 - 1,
-                                            y: 1,
-                                        },
-                                        owner: "enemy",
-                                        speed: bulletSpeed,
-                                        size: 6,
-                                        color: boss.bulletColor,
-                                    }),
-                                );
-                            }
-                            break;
-                    }
-                    boss.fireTimer = 0;
-                }
-            }
-
-            const checkCollisions = () => {
-                if (!player) return;
-
-                const bulletsToRemove = new Set();
-                const enemiesToRemove = new Set();
-                let newScore = score;
-
-                playerBullets.forEach((bullet) => {
-                    enemies.forEach((enemy) => {
-                        const distance = Math.hypot(
-                            bullet.x - enemy.x,
-                            bullet.y - enemy.y,
-                        );
-                        if (distance < enemy.hitboxRadius + bullet.size) {
-                            bulletsToRemove.add(bullet);
-                            enemy.health -= bullet.damage;
-                            if (enemy.health <= 0) {
-                                enemiesToRemove.add(enemy);
-                                newScore += enemy.scoreValue;
-                            }
-                        }
-                    });
-
-                    if (boss) {
-                        const distance = Math.hypot(
-                            bullet.x - boss.x,
-                            bullet.y - boss.y,
-                        );
-                        if (distance < boss.hitboxRadius + bullet.size) {
-                            bulletsToRemove.add(bullet);
-                            boss.health -= bullet.damage;
-                            if (boss.health <= 0) {
-                                newScore += boss.scoreValue;
-                                boss = null;
-                                currentDialogueScript = postBattleDialogue;
-                                startDialogue();
-                                return;
-                            }
-                            bossHealthPercentage =
-                                (boss.health / boss.maxHealth) * 100;
-                        }
-                    }
-                });
-                if (!isInvincible) {
-                    enemyBullets.forEach((bullet) => {
-                        if (!player) return;
-                        const distance = Math.hypot(
-                            bullet.x - player.x,
-                            bullet.y - player.y,
-                        );
-                        if (distance < player.hitboxRadius + bullet.size) {
-                            bulletsToRemove.add(bullet);
-                            lives--;
-                            if (lives <= 0) {
-                                isGameOver = true;
-                            } else {
-                                isInvincible = true;
-                            }
-                        }
-                    });
-
-                    enemies.forEach((enemy) => {
-                        if (!player) return;
-                        const distance = Math.hypot(
-                            enemy.x - player.x,
-                            enemy.y - player.y,
-                        );
-                        if (
-                            distance <
-                            player.hitboxRadius + enemy.hitboxRadius
-                        ) {
-                            lives--;
-                            if (lives <= 0) {
-                                isGameOver = true;
-                            } else {
-                                isInvincible = true;
-                            }
-                            enemiesToRemove.add(enemy);
-                        }
-                    });
-                }
-                playerBullets = playerBullets.filter(
-                    (bullet) => !bulletsToRemove.has(bullet),
-                );
-                enemies = enemies.filter(
-                    (enemy) => enemy.health > 0 && !enemiesToRemove.has(enemy),
-                );
-                enemyBullets = enemyBullets.filter(
-                    (bullet) => !bulletsToRemove.has(bullet),
-                );
-                score = newScore;
-            };
-
-            checkCollisions();
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (
-                !isInvincible ||
-                (isInvincible &&
-                    Math.floor((invincibilityTimer * 60) / 10) % 2 === 0)
-            ) {
-                player.draw(ctx, deltaTime);
-            }
-            for (const b of playerBullets) {
-                b.draw(ctx);
-            }
-            for (const e of enemies) {
-                e.draw(ctx);
-            }
-            for (const b of enemyBullets) {
-                b.draw(ctx);
-            }
-            if (boss) {
-                boss.draw(ctx);
-            }
-
-            animationFrameId = requestAnimationFrame(loop);
+            enemies = enemies.filter(
+                (enemy) => enemy.health > 0 && !enemiesToRemove.has(enemy),
+            );
+            enemyBullets = enemyBullets.filter(
+                (bullet) => !bulletsToRemove.has(bullet),
+            );
+            score = newScore;
         };
+
+        checkCollisions();
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (
+            !isInvincible ||
+            (isInvincible &&
+                Math.floor((invincibilityTimer * 60) / 10) % 2 === 0)
+        ) {
+            player.draw(ctx, deltaTime);
+        }
+        for (const b of playerBullets) {
+            b.draw(ctx);
+        }
+        for (const e of enemies) {
+            e.draw(ctx);
+        }
+        for (const b of enemyBullets) {
+            b.draw(ctx);
+        }
+        if (boss) {
+            boss.draw(ctx);
+        }
+
+        animationFrameId = requestAnimationFrame(loop);
+    };
+
+    $effect(() => {
+        if (!isGameStarted || isGameOver || isGameClear) {
+            return;
+        }
 
         animationFrameId = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(animationFrameId);
-    }); // キーボード入力で会話を進める
+    });
 
     const handleDialogueKeyDown = (e: KeyboardEvent) => {
         if (isDialogueActive || isGameClear) {
             e.preventDefault();
             handleNextDialogue();
         } else {
-            // 既存のゲーム操作ロジック
             keys[e.key.toLowerCase()] = true;
         }
     };
@@ -581,11 +565,11 @@
     let isMoving = $state(false);
 
     function handleTouchStart(e: TouchEvent) {
-        if (!isGameStarted || isGameOver) {
+        if (!isGameStarted || isGameOver || isGameClear) {
             startGame();
             return;
         }
-        if (isDialogueActive || isGameClear) {
+        if (isDialogueActive) {
             e.preventDefault();
             handleNextDialogue();
         } else {
@@ -699,8 +683,8 @@
             </h1>
             <p class="text-lg sm:text-2xl font-semibold mb-8 text-gray-300">
                 画面を指でなぞって移動。<br />
-                                PCでは十字キーで操作。<br />
-                                弾は自動で発射されます。
+                PCでは十字キーで操作。<br />
+                弾は自動で発射されます。
             </p>
             <button
                 onclick={startGame}
@@ -758,7 +742,7 @@
             <div
                 tabindex="0"
                 role="button"
-                onkeydown={() => {}}
+                onkeydown={handleDialogueKeyDown}
                 class="absolute inset-0 z-30 flex flex-col p-4 pointer-events-auto"
                 onclick={handleNextDialogue}
             >
