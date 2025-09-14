@@ -158,6 +158,17 @@
     function handleNextDialogue() {
         if (!isDialogueActive) return;
 
+        // 会話が最後のセリフに達した場合
+        if (dialogueIndex >= currentDialogueScript.length - 1) {
+            isDialogueActive = false;
+            isPaused = false; // ここでゲームクリア状態に移行するロジックを追加
+            if (currentDialogueScript === postBattleDialogue) {
+                isGameClear = true;
+            }
+            lastTimestamp = performance.now();
+            return;
+        }
+
         dialogueIndex++;
         if (dialogueIndex < currentDialogueScript.length) {
             updateDialogueDisplay(currentDialogueScript[dialogueIndex].speaker);
@@ -306,7 +317,7 @@
                             new StraightEnemy({
                                 x: wave.x,
                                 y: -50,
-                                health: 10,
+                                health: 5,
                                 scoreValue: 10,
                             }),
                         );
@@ -315,7 +326,7 @@
                             new SpreadEnemy({
                                 x: wave.x,
                                 y: -50,
-                                health: 15,
+                                health: 10,
                                 scoreValue: 20,
                             }),
                         );
@@ -330,7 +341,7 @@
                 !boss &&
                 !isDialogueActive
             ) {
-                // ボス戦開始前に会話パートを挟む
+                currentDialogueScript = preBattleDialogue;
                 startDialogue();
                 boss = new Boss({
                     x: canvas.width / 2,
@@ -351,7 +362,6 @@
                 }
 
                 if (boss.fireTimer >= 0.5) {
-                    // 0.5秒ごとに発射
                     const bulletSpeed = currentPattern.speed;
                     switch (currentPattern.type) {
                         case "spread":
@@ -440,12 +450,11 @@
             }
 
             const checkCollisions = () => {
-                if (!player) return; // 衝突した弾丸と敵を追跡するためのSetを作成
+                if (!player) return;
 
                 const bulletsToRemove = new Set();
                 const enemiesToRemove = new Set();
-
-                let newScore = score; // プレイヤーの弾丸と敵の衝突判定
+                let newScore = score;
 
                 playerBullets.forEach((bullet) => {
                     enemies.forEach((enemy) => {
@@ -454,14 +463,14 @@
                             bullet.y - enemy.y,
                         );
                         if (distance < enemy.hitboxRadius + bullet.size) {
-                            bulletsToRemove.add(bullet); // ダメージ計算を適用
+                            bulletsToRemove.add(bullet);
                             enemy.health -= bullet.damage;
                             if (enemy.health <= 0) {
                                 enemiesToRemove.add(enemy);
                                 newScore += enemy.scoreValue;
                             }
                         }
-                    }); // ボスとの衝突判定
+                    });
 
                     if (boss) {
                         const distance = Math.hypot(
@@ -469,21 +478,20 @@
                             bullet.y - boss.y,
                         );
                         if (distance < boss.hitboxRadius + bullet.size) {
-                            bulletsToRemove.add(bullet); // ダメージ計算を適用
+                            bulletsToRemove.add(bullet);
                             boss.health -= bullet.damage;
                             if (boss.health <= 0) {
-                                newScore += boss.scoreValue; // ★ ボス撃破後の処理
+                                newScore += boss.scoreValue;
                                 boss = null;
-                                currentDialogueScript = postBattleDialogue; // 撃破後の会話に切り替え
-                                startDialogue(); // 会話パートを開始
-                                return; // このフレームの描画をスキップ
+                                currentDialogueScript = postBattleDialogue;
+                                startDialogue();
+                                return;
                             }
                             bossHealthPercentage =
                                 (boss.health / boss.maxHealth) * 100;
                         }
                     }
-                }); // 敵の弾丸とプレイヤーの衝突判定
-
+                });
                 if (!isInvincible) {
                     enemyBullets.forEach((bullet) => {
                         if (!player) return;
@@ -500,7 +508,7 @@
                                 isInvincible = true;
                             }
                         }
-                    }); // 敵とプレイヤーの衝突判定
+                    });
 
                     enemies.forEach((enemy) => {
                         if (!player) return;
@@ -521,8 +529,7 @@
                             enemiesToRemove.add(enemy);
                         }
                     });
-                } // `Set`を使って、衝突したオブジェクトを元の配列から削除
-
+                }
                 playerBullets = playerBullets.filter(
                     (bullet) => !bulletsToRemove.has(bullet),
                 );
@@ -532,7 +539,6 @@
                 enemyBullets = enemyBullets.filter(
                     (bullet) => !bulletsToRemove.has(bullet),
                 );
-
                 score = newScore;
             };
 
@@ -579,7 +585,7 @@
         if (!isDialogueActive && !isGameClear) {
             keys[e.key.toLowerCase()] = false;
         }
-    }; // ... (既存のタッチ操作ロジックは省略) ...
+    };
 
     let lastTouchX = 0;
     let isMoving = $state(false);
@@ -675,7 +681,6 @@
             bind:this={canvas}
             class="bg-black border-2 border-gray-600 w-full h-full touch-none"
         ></canvas>
-
         <div
             class="absolute top-0 left-0 w-full flex justify-between p-4 box-border pointer-events-none z-10"
         >
@@ -686,7 +691,6 @@
                 残機: {lives}
             </div>
         </div>
-
         <div
             class="absolute top-2 left-1/2 -translate-x-1/2 w-4/5 md:w-3/5 h-6 bg-gray-700 rounded-full shadow-lg overflow-hidden"
             class:hidden={!boss}
@@ -696,7 +700,6 @@
                 style:width={`${bossHealthPercentage}%`}
             ></div>
         </div>
-
         <div
             class="absolute inset-0 bg-black/70 flex flex-col justify-center items-center text-center z-20 p-4"
             class:hidden={isGameStarted}
@@ -706,8 +709,8 @@
             </h1>
             <p class="text-lg sm:text-2xl font-semibold mb-8 text-gray-300">
                 画面を指でなぞって移動。<br />
-                PCでは十字キーで操作。<br />
-                弾は自動で発射されます。
+                                PCでは十字キーで操作。<br />
+                                弾は自動で発射されます。
             </p>
             <button
                 onclick={startGame}
@@ -716,7 +719,6 @@
                 ゲームスタート
             </button>
         </div>
-
         {#if isGameOver}
             <div
                 class="absolute inset-0 bg-black/70 flex flex-col justify-center items-center text-center z-20 p-4"
@@ -777,7 +779,6 @@
                         class="h-2/3 max-h-80 object-contain transition-opacity duration-300"
                         style:opacity={playerOpacity.current}
                     />
-
                     <img
                         src={currentDialogueScript[dialogueIndex].speaker ===
                         "boss"
@@ -788,7 +789,6 @@
                         style:opacity={bossOpacity.current}
                     />
                 </div>
-
                 <div
                     class="w-full bg-gray-800 bg-opacity-90 rounded-xl p-4 shadow-2xl border-2 border-blue-400 text-lg sm:text-xl font-semibold"
                 >
