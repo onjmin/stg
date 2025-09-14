@@ -158,15 +158,20 @@
     function handleNextDialogue() {
         if (!isDialogueActive) return;
 
-        dialogueIndex++;
-        if (dialogueIndex < currentDialogueScript.length) {
+        // 現在の会話が最後のセリフかどうかをチェック
+        if (dialogueIndex < currentDialogueScript.length - 1) {
+            // まだ次のセリフがある場合、インデックスを進める
+            dialogueIndex++;
             updateDialogueDisplay(currentDialogueScript[dialogueIndex].speaker);
         } else {
+            // 最後のセリフに到達した場合、会話を終了する
             isDialogueActive = false;
             if (currentDialogueScript === preBattleDialogue) {
+                // ボス戦前の会話が終了した場合
                 isPaused = false;
                 lastTimestamp = performance.now();
             } else if (currentDialogueScript === postBattleDialogue) {
+                // ボス撃破後の会話が終了した場合
                 isGameClear = true;
                 isPaused = true;
             }
