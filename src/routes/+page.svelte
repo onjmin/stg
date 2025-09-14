@@ -118,6 +118,7 @@
                         direction: { x: 0, y: -1 },
                         owner: "player",
                         damage: 5, // ★ プレイヤーの弾丸ダメージを設定
+                        color: "#f6e05e",
                     }),
                 );
                 player.fireTimer = 0;
@@ -156,7 +157,7 @@
                                 y: enemy.y + enemy.height,
                                 direction: { x: 0, y: 1 },
                                 owner: "enemy",
-                                color: "#a0aec0",
+                                color: enemy.bulletColor,
                             }),
                         );
                         enemy.fireTimer = 0;
@@ -174,7 +175,7 @@
                                     y: enemy.y + enemy.height,
                                     direction: { x: speedX, y: speedY },
                                     owner: "enemy",
-                                    color: "#a0aec0",
+                                    color: enemy.bulletColor,
                                 }),
                             );
                         });
@@ -251,9 +252,9 @@
                                         y: boss.y + boss.height / 2,
                                         direction: { x: speedX, y: speedY },
                                         owner: "enemy",
-                                        color: "#ecc94b",
                                         speed: bulletSpeed,
                                         size: 8,
+                                        color: boss.bulletColor,
                                     }),
                                 );
                             }
@@ -270,9 +271,9 @@
                                         y: boss.y + boss.height / 2,
                                         direction: { x: speedX, y: speedY },
                                         owner: "enemy",
-                                        color: "#ecc94b",
                                         speed: bulletSpeed,
                                         size: 6,
+                                        color: boss.bulletColor,
                                     }),
                                 );
                             }
@@ -293,9 +294,9 @@
                                         y: boss.y + boss.height / 2,
                                         direction: { x: speedX, y: speedY },
                                         owner: "enemy",
-                                        color: "#ecc94b",
                                         speed: bulletSpeed,
                                         size: 6,
+                                        color: boss.bulletColor,
                                     }),
                                 );
                             }
@@ -312,9 +313,9 @@
                                             y: 1,
                                         },
                                         owner: "enemy",
-                                        color: "#ecc94b",
                                         speed: bulletSpeed,
                                         size: 6,
+                                        color: boss.bulletColor,
                                     }),
                                 );
                             }

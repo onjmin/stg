@@ -101,8 +101,23 @@ export class Bullet {
 
 	draw(ctx: CanvasRenderingContext2D) {
 		ctx.beginPath();
+
+		// 放射状グラデーションを作成
+		const gradient = ctx.createRadialGradient(
+			this.x,
+			this.y,
+			0, // 内側の円 (中心点, 半径0)
+			this.x,
+			this.y,
+			this.size, // 外側の円 (中心点, 弾丸のサイズに合わせた半径)
+		);
+
+		// グラデーションの色を設定
+		gradient.addColorStop(0, "white"); // 内側は白
+		gradient.addColorStop(1, this.color); // 外側はBulletの`color`プロパティで定義された色
+
 		ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-		ctx.fillStyle = this.color;
+		ctx.fillStyle = gradient; // fillStyleにグラデーションを適用
 		ctx.fill();
 		ctx.closePath();
 	}
@@ -115,7 +130,7 @@ export class Enemy {
 	scoreValue: number;
 	width = 48;
 	height = 48;
-	color: string;
+	bulletColor: string;
 	speed = 4;
 	hitboxRadius = 10;
 	fireTimer = 0;
@@ -127,20 +142,20 @@ export class Enemy {
 		health,
 		scoreValue,
 		imageSrc, // 新しい引数として画像URLを受け取る
-		color = "#e53e3e",
+		bulletColor = "#e53e3e",
 	}: {
 		x: number;
 		y: number;
 		health: number;
 		scoreValue: number;
 		imageSrc: string; // imageSrcは必須
-		color?: string;
+		bulletColor?: string;
 	}) {
 		this.x = x;
 		this.y = y;
 		this.health = health;
 		this.scoreValue = scoreValue;
-		this.color = color;
+		this.bulletColor = bulletColor;
 
 		// 画像を読み込む
 		this.enemyImage = new Image();
@@ -161,18 +176,6 @@ export class Enemy {
 				this.width,
 				this.height,
 			);
-		} else {
-			// 画像がロードされていない場合は、一時的に元の四角形を描画する
-			ctx.beginPath();
-			ctx.rect(
-				this.x - this.width / 2,
-				this.y - this.height / 2,
-				this.width,
-				this.height,
-			);
-			ctx.fillStyle = this.color;
-			ctx.fill();
-			ctx.closePath();
 		}
 	}
 }
@@ -185,15 +188,13 @@ export class StraightEnemy extends Enemy {
 		y,
 		health,
 		scoreValue,
-		color,
 	}: {
 		x: number;
 		y: number;
 		health: number;
 		scoreValue: number;
-		color?: string;
 	}) {
-		super({ x, y, health, scoreValue, color, imageSrc: zako });
+		super({ x, y, health, scoreValue, imageSrc: zako });
 	}
 }
 
@@ -205,15 +206,13 @@ export class SpreadEnemy extends Enemy {
 		y,
 		health,
 		scoreValue,
-		color,
 	}: {
 		x: number;
 		y: number;
 		health: number;
 		scoreValue: number;
-		color?: string;
 	}) {
-		super({ x, y, health, scoreValue, color, imageSrc: zakoHaneImage });
+		super({ x, y, health, scoreValue, imageSrc: zakoHaneImage });
 	}
 }
 
@@ -253,7 +252,14 @@ export class Boss extends Enemy {
 		health: number;
 		scoreValue: number;
 	}) {
-		super({ x, y, health, scoreValue, color: "#f56565", imageSrc: bossImage });
+		super({
+			x,
+			y,
+			health,
+			scoreValue,
+			bulletColor: "#9b68fa",
+			imageSrc: bossImage,
+		});
 		this.targetX = x;
 		this.targetY = y;
 		this.maxHealth = health;
