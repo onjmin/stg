@@ -1,14 +1,3 @@
-const saveCache = (
-	cachedKey: string,
-	thumbnail: string | null,
-	title: string | null,
-	author: string | null,
-) => {
-	if (thumbnail) localStorage.setItem(`${cachedKey}###thumbnail`, thumbnail);
-	if (title) localStorage.setItem(`${cachedKey}###title`, title);
-	if (author) localStorage.setItem(`${cachedKey}###author`, author);
-};
-
 let userActionDone = false;
 
 /**
@@ -30,15 +19,11 @@ export let activeController: Controller | null = null;
 export const clearActiveController = () => {
 	activeController = null;
 };
-let g_callback = () => {};
-export const onEnded = (callback: () => void) => {
-	g_callback = callback;
-};
 
-let soundCloudVolume = 48;
+let soundCloudVolume = 24;
 // スマホ版の音量調整
 if (globalThis?.window && globalThis.window.innerWidth < 768) {
-	soundCloudVolume = 64;
+	soundCloudVolume = 32;
 }
 
 type Controller = {
@@ -76,15 +61,10 @@ export const embedSoundCloud = ({
 		soundCloudController.target = window.SC.Widget(iframeDOM);
 		soundCloudController.target?.bind(window.SC.Widget.Events.READY, () => {
 			soundCloudController.play();
-			soundCloudController.target.getCurrentSound((res: any) => {
-				const thumbnail = res.artwork_url || res.user.avatar_url;
-				const title = res.title;
-				const author = res.user.username;
-			});
 		});
-		soundCloudController.target?.bind(window.SC.Widget.Events.FINISH, () =>
-			g_callback(),
-		);
+		soundCloudController.target?.bind(window.SC.Widget.Events.FINISH, () => {
+			soundCloudController.play();
+		});
 		soundCloudController.target?.bind(
 			window.SC.Widget.Events.ERROR,
 			console.error,
