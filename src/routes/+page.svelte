@@ -13,6 +13,7 @@
         SpreadEnemy,
         StraightEnemy,
     } from "$lib/class"; // 既存のステート変数はそのまま
+    import EmbedPart from "$lib/components/EmbedPart.svelte";
     // ✅ 修正箇所: 効果音インスタンスをインポート
     import {
         bulletSound,
@@ -66,6 +67,8 @@
     let dialogueIndex = $state(0);
     let isGameClear = $state(false);
     let isKeyDown = $state(false); // ✅ 追加: キーが押されているかどうかのフラグ
+
+    let embedUrl = $state("");
 
     const preBattleDialogue = [
         {
@@ -152,6 +155,7 @@
             player.y = canvas.height - 80;
         }
         lastTimestamp = performance.now();
+        embedUrl = "https://soundcloud.com/k-innq/yo-kai_disco_remix";
     };
 
     const startDialogue = () => {
@@ -176,6 +180,7 @@
             if (dialogueState === "preBattle") {
                 isPaused = false;
                 lastTimestamp = performance.now();
+                embedUrl = "https://soundcloud.com/vcln/tohohu_iwasi";
             } else if (dialogueState === "postBattle") {
                 isGameClear = true;
                 isPaused = true;
@@ -478,6 +483,7 @@
                             currentDialogueScript = postBattleDialogue;
                             startDialogue();
                             dialogueState = "postBattle";
+                            embedUrl = "";
                             return;
                         }
                         bossHealthPercentage =
@@ -723,8 +729,8 @@
             </h1>
             <p class="text-lg sm:text-2xl font-semibold mb-8 text-gray-300">
                 画面を指でなぞって移動。<br />
-                                PCでは十字キーで操作。<br />
-                                弾は自動で発射されます。
+                PCでは十字キーで操作。<br />
+                弾は自動で発射されます。
             </p>
             <button
                 onclick={startGame}
@@ -820,3 +826,5 @@
         {/if}
     </div>
 </div>
+
+<EmbedPart {embedUrl} />
