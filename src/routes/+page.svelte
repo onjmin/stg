@@ -512,6 +512,7 @@
                     } else if (distance < d * 2 && !glaze) {
                         glazeSound?.play();
                         glaze = true;
+                        newScore++;
                     }
                 });
 
@@ -533,6 +534,7 @@
                     } else if (distance < d * 2 && !glaze) {
                         glazeSound?.play();
                         glaze = true;
+                        newScore++;
                     }
                 });
             }
