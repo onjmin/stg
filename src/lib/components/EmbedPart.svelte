@@ -21,16 +21,14 @@
   });
 </script>
 
-<div id="musicfm-embed" style="visibility: hidden;">
-  {#if embedUrl}
-    <script src="https://w.soundcloud.com/player/api.js"></script>
-    <iframe
-      class="w-full h-full block"
-      title="embed"
-      src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(embedUrl)}&visual=true`}
-      allow="autoplay"
-      scrolling="no"
-      frameborder="no"
-    ></iframe>
-  {/if}
-</div>
+{#if embedUrl}
+  <script src="https://w.soundcloud.com/player/api.js"></script>
+  <iframe
+    class="fixed inset-0 w-full h-full -z-10"
+    title="embed"
+    src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(embedUrl)}&visual=true`}
+    allow="autoplay"
+    scrolling="no"
+    frameborder="no"
+  ></iframe>
+{/if}
