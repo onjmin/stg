@@ -180,7 +180,7 @@
             if (dialogueState === "preBattle") {
                 isPaused = false;
                 lastTimestamp = performance.now();
-                embedUrl = "https://soundcloud.com/vcln/tohohu_iwasi";
+                // embedUrl = "https://soundcloud.com/vcln/tohohu_iwasi";
             } else if (dialogueState === "postBattle") {
                 isGameClear = true;
                 isPaused = true;
