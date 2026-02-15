@@ -63,6 +63,8 @@ const enemyWaves = [
 	{ time: 15, type: "spread", x: 150 },
 ];
 const isMobile = "ontouchstart" in globalThis || navigator.maxTouchPoints > 0;
+const BASE_HEIGHT = 600;
+let heightScale = $state(1);
 let lastTimestamp: number = 0;
 let animationFrameId: number;
 let bossHealthPercentage = $state(100);
@@ -366,7 +368,7 @@ const loop = (timestamp: number) => {
 	});
 
 	enemies.forEach((enemy) => {
-		enemy.y += enemy.speed * 60 * deltaTime;
+		enemy.y += enemy.speed * 60 * deltaTime * heightScale;
 		enemy.fireTimer += deltaTime;
 
 		if (enemy instanceof StraightEnemy) {
@@ -477,7 +479,7 @@ const loop = (timestamp: number) => {
 		}
 
 		if (boss.fireTimer >= 0.5) {
-			const bulletSpeed = currentPattern.speed;
+			const bulletSpeed = currentPattern.speed * heightScale;
 			switch (currentPattern.type) {
 				case "spread":
 					for (let i = -2; i <= 2; i++) {
@@ -993,6 +995,7 @@ function resizeCanvas() {
 	if (gameContainer) {
 		canvas.width = gameContainer.offsetWidth;
 		canvas.height = gameContainer.offsetHeight;
+		heightScale = Math.max(0.5, canvas.height / BASE_HEIGHT);
 	}
 }
 </script>
@@ -1005,7 +1008,7 @@ function resizeCanvas() {
 </svelte:head>
 
 <div
-    class="bg-gray-900 text-white font-['M_PLUS_Rounded_1c'] flex flex-col justify-center items-center h-screen overflow-hidden"
+    class="bg-gray-900 text-white font-['M_PLUS_Rounded_1c'] flex flex-col justify-center items-center h-[100dvh] overflow-hidden"
     ontouchstart={handleTouchStart}
     ontouchmove={handleTouchMove}
     ontouchend={handleTouchEnd}
