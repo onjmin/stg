@@ -34,6 +34,9 @@ let keys = $state<{ [key: string]: boolean }>({});
 let isPaused = $state(false);
 let isInvincible = $state(false);
 let invincibilityTimer = $state(0);
+let isGlazing = $state(false);
+let glazeTimer = $state(0);
+const GLAZE_DURATION = 0.3;
 const INVINCIBILITY_DURATION = 4;
 let player = $state<Player | null>(null);
 let enemies = $state<Enemy[]>([]);
@@ -248,6 +251,14 @@ const loop = (timestamp: number) => {
 		if (invincibilityTimer >= INVINCIBILITY_DURATION) {
 			isInvincible = false;
 			invincibilityTimer = 0;
+		}
+	}
+
+	if (isGlazing) {
+		glazeTimer += deltaTime;
+		if (glazeTimer >= GLAZE_DURATION) {
+			isGlazing = false;
+			glazeTimer = 0;
 		}
 	}
 
@@ -702,6 +713,8 @@ const loop = (timestamp: number) => {
 				} else if (distance < d * 2 && !glaze) {
 					glazeSound?.play();
 					glaze = true;
+					isGlazing = true;
+					glazeTimer = 0;
 					newScore++;
 				}
 			});
@@ -721,6 +734,8 @@ const loop = (timestamp: number) => {
 				} else if (distance < d * 2 && !glaze) {
 					glazeSound?.play();
 					glaze = true;
+					isGlazing = true;
+					glazeTimer = 0;
 					newScore++;
 				}
 			});
@@ -745,6 +760,43 @@ const loop = (timestamp: number) => {
 		(isInvincible && Math.floor((invincibilityTimer * 60) / 10) % 2 === 0)
 	) {
 		player.draw(ctx, deltaTime);
+	}
+
+	if (isGlazing && player) {
+		const outerRadius = 30;
+		const innerRadius = 25;
+		const blinkSpeed = 15;
+		const alpha = Math.abs(Math.sin(glazeTimer * blinkSpeed));
+
+		ctx.save();
+		ctx.beginPath();
+		ctx.arc(player.x, player.y, outerRadius, 0, Math.PI * 2);
+		ctx.strokeStyle = `rgba(255, 215, 0, ${alpha})`;
+		ctx.lineWidth = 3;
+		ctx.stroke();
+
+		ctx.beginPath();
+		ctx.arc(player.x, player.y, innerRadius, 0, Math.PI * 2);
+		ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.7})`;
+		ctx.lineWidth = 2;
+		ctx.stroke();
+
+		for (let i = 0; i < 4; i++) {
+			const angle = (i / 4) * Math.PI * 2 + glazeTimer * 3;
+			const x1 = player.x + Math.cos(angle) * innerRadius;
+			const y1 = player.y + Math.sin(angle) * innerRadius;
+			const x2 = player.x + Math.cos(angle) * outerRadius;
+			const y2 = player.y + Math.sin(angle) * outerRadius;
+
+			ctx.beginPath();
+			ctx.moveTo(x1, y1);
+			ctx.lineTo(x2, y2);
+			ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+			ctx.lineWidth = 1;
+			ctx.stroke();
+		}
+
+		ctx.restore();
 	}
 	for (const b of playerBullets) {
 		b.draw(ctx);
