@@ -74,6 +74,14 @@ let isKeyDown = $state(false); // ✅ 追加: キーが押されているかど�
 
 let embedUrl = $state("");
 
+// スペルカードシステム
+let bombs = $state(3); // 残ボム数（東方準拠で3つ）
+let isSpellCardActive = $state(false);
+let spellCardTimer = $state(0);
+let spellCardEffectTimer = $state(0);
+const SPELL_CARD_DURATION = 3; // スペルカード発動時間（秒）
+const SPELL_CARD_NAME = "霊符「夢想封印」";
+
 const preBattleDialogue = [
 	{
 		speaker: "boss",
@@ -141,6 +149,10 @@ const startGame = () => {
 	isDialogueActive = false;
 	score = 0;
 	lives = 3;
+	bombs = 3;
+	isSpellCardActive = false;
+	spellCardTimer = 0;
+	spellCardEffectTimer = 0;
 	enemies = [];
 	playerBullets = [];
 	enemyBullets = [];
@@ -259,6 +271,16 @@ const loop = (timestamp: number) => {
 		if (glazeTimer >= GLAZE_DURATION) {
 			isGlazing = false;
 			glazeTimer = 0;
+		}
+	}
+
+	if (isSpellCardActive) {
+		spellCardTimer -= deltaTime;
+		spellCardEffectTimer += deltaTime;
+		if (spellCardTimer <= 0) {
+			isSpellCardActive = false;
+			spellCardTimer = 0;
+			spellCardEffectTimer = 0;
 		}
 	}
 
@@ -835,7 +857,48 @@ const handleDialogueKeyDown = (e: KeyboardEvent) => {
 			isKeyDown = true;
 		}
 	} else {
+		// スペルカード発動（Shiftキー）
+		if (
+			e.key.toLowerCase() === "x" &&
+			bombs > 0 &&
+			!isSpellCardActive &&
+			!isInvincible
+		) {
+			activateSpellCard();
+		}
 		keys[e.key.toLowerCase()] = true;
+	}
+};
+
+const activateSpellCard = () => {
+	if (bombs > 0 && !isSpellCardActive) {
+		bombs--;
+		isSpellCardActive = true;
+		spellCardTimer = SPELL_CARD_DURATION;
+		spellCardEffectTimer = 0;
+
+		// 効果: 敵弾を全て消去
+		enemyBullets = [];
+
+		// 効果: ボスにダメージ
+		if (boss) {
+			boss.health -= 50;
+			if (boss.health <= 0) {
+				score += boss.scoreValue;
+				boss = null;
+				currentDialogueScript = postBattleDialogue;
+				startDialogue();
+				dialogueState = "postBattle";
+				embedUrl = "";
+			}
+			bossHealthPercentage = boss ? (boss.health / boss.maxHealth) * 100 : 0;
+		}
+
+		// 効果: 敵を全て倒す
+		enemies.forEach((enemy) => {
+			score += enemy.scoreValue;
+		});
+		enemies = [];
 	}
 };
 const handleDialogueKeyUp = (e: KeyboardEvent) => {
@@ -849,6 +912,8 @@ const handleDialogueKeyUp = (e: KeyboardEvent) => {
 
 let lastTouchX = 0;
 let isMoving = $state(false);
+let lastTapTime = 0;
+const DOUBLE_TAP_DELAY = 300;
 
 function handleTouchStart(e: TouchEvent) {
 	if (!isGameStarted || isGameOver || isGameClear) {
@@ -858,11 +923,22 @@ function handleTouchStart(e: TouchEvent) {
 	if (isDialogueActive) {
 		e.preventDefault();
 		handleNextDialogue();
-	} else {
-		e.preventDefault();
-		isMoving = true;
-		lastTouchX = e.touches[0].clientX;
+		return;
 	}
+
+	const now = Date.now();
+	if (now - lastTapTime < DOUBLE_TAP_DELAY) {
+		if (bombs > 0 && !isSpellCardActive && !isInvincible) {
+			activateSpellCard();
+		}
+		lastTapTime = 0;
+		return;
+	}
+	lastTapTime = now;
+
+	e.preventDefault();
+	isMoving = true;
+	lastTouchX = e.touches[0].clientX;
 }
 
 function handleTouchMove(e: TouchEvent) {
@@ -947,8 +1023,13 @@ function resizeCanvas() {
             <div class="text-xl font-bold p-2 bg-gray-700 rounded-lg shadow-lg">
                 スコア: {score}
             </div>
-            <div class="text-xl font-bold p-2 bg-gray-700 rounded-lg shadow-lg">
-                残機: {lives}
+            <div class="flex gap-2">
+                <div class="text-xl font-bold p-2 bg-gray-700 rounded-lg shadow-lg">
+                    残機: {lives}
+                </div>
+                <div class="text-xl font-bold p-2 bg-purple-700 rounded-lg shadow-lg">
+                    残ボム: {bombs}
+                </div>
             </div>
         </div>
         <div
@@ -1063,6 +1144,52 @@ function resizeCanvas() {
                     </p>
                 </div>
             </div>
+        {/if}
+
+        {#if isSpellCardActive}
+            <div class="absolute inset-0 z-40 pointer-events-none">
+                <div class="absolute inset-0 bg-purple-900/30 animate-pulse"></div>
+                <div class="absolute bottom-1/4 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                    <img
+                        src={playerImage}
+                        alt={player?.name}
+                        class="h-48 sm:h-64 object-contain animate-bounce"
+                    />
+                    <div class="mt-4 text-center">
+                        <div class="text-2xl sm:text-3xl font-bold text-yellow-300 drop-shadow-lg">
+                            {SPELL_CARD_NAME}
+                        </div>
+                        <div class="text-xl sm:text-2xl font-bold text-white drop-shadow-lg mt-2">
+                            {spellCardTimer.toFixed(1)}
+                        </div>
+                    </div>
+                </div>
+                {#if player}
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                        <div class="w-32 h-32 sm:w-48 sm:h-48 rounded-full bg-purple-500/50 animate-ping"></div>
+                    </div>
+                {/if}
+            </div>
+        {/if}
+
+        {#if isGameStarted && !isGameOver && !isGameClear && !isDialogueActive && !isMobile}
+            <button
+                onclick={() => { if (bombs > 0 && !isSpellCardActive && !isInvincible) activateSpellCard(); }}
+                disabled={bombs <= 0 || isSpellCardActive}
+                class="absolute bottom-4 right-4 z-30 pointer-events-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-500 rounded-lg font-bold text-white shadow-lg"
+            >
+                ボム ({bombs})
+            </button>
+        {/if}
+
+        {#if isGameStarted && !isGameOver && !isGameClear && !isDialogueActive && isMobile}
+            <button
+                onclick={() => { if (bombs > 0 && !isSpellCardActive && !isInvincible) activateSpellCard(); }}
+                disabled={bombs <= 0 || isSpellCardActive}
+                class="absolute bottom-4 right-4 z-30 pointer-events-auto w-20 h-20 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-500 rounded-full font-bold text-white shadow-lg text-lg"
+            >
+                ボム
+            </button>
         {/if}
     </div>
 </div>
